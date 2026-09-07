@@ -645,8 +645,6 @@
     bar.className = INJECTED;
     const mainRow = document.createElement('div');
     mainRow.className = 'doc-tools-row doc-tools-row--main ' + INJECTED;
-    const subRow = document.createElement('div');
-    subRow.className = 'doc-tools-row doc-tools-row--sub ' + INJECTED;
     const tools = document.createElement('button');
     tools.type = 'button';
     tools.textContent = '回到顶部';
@@ -672,19 +670,8 @@
     print.textContent = '打印';
     print.title = '打印或另存为 PDF';
     print.addEventListener('click', () => window.print());
-    const exportMd = document.createElement('button');
-    exportMd.type = 'button';
-    exportMd.textContent = '导出 Markdown';
-    exportMd.title = '导出为 Markdown 文件';
-    exportMd.addEventListener('click', () => exportConversation('md'));
-    const exportHtml = document.createElement('button');
-    exportHtml.type = 'button';
-    exportHtml.textContent = '导出 HTML';
-    exportHtml.title = '导出自包含 HTML 单文件';
-    exportHtml.addEventListener('click', () => exportConversation('html'));
     mainRow.append(tools, copy, find, outline, print);
-    subRow.append(exportMd, exportHtml);
-    bar.append(mainRow, subRow);
+    bar.append(mainRow);
 
     const meta = document.createElement('div');
     meta.className = 'doc-tools-meta ' + INJECTED;
@@ -879,7 +866,7 @@
         if (fenced) pre.replaceWith(document.createTextNode('\n' + fenced + '\n'));
       });
     } catch {}
-    clone.querySelectorAll('.doc-qtag,.doc-expand,.doc-thinkbtn,#docdeep-outline,#docdeep-tools,#docdeep-find,#docdeep-export-progress').forEach(n => n.remove());
+    clone.querySelectorAll('.doc-qtag,.doc-expand,.doc-thinkbtn,#docdeep-outline,#docdeep-tools,#docdeep-find,#docdeep-export-progress,#docdeep-export-dialog').forEach(n => n.remove());
     return (clone.innerText || '').replace(/\n{3,}/g, '\n\n').trim();
   }
 
@@ -1146,7 +1133,7 @@
       toast('已有导出任务正在进行');
       return false;
     }
-    // Phase-3: 选中导出(仅 MD 入口用,JSON 保持全量语义由调用方决定);空选中给人话并中止
+    // Phase-3: 选中导出(MD/HTML 共用同一 onlySelected 链路,JSON 保持全量语义由调用方决定);空选中给人话并中止
     const onlySelected = !!opts.onlySelected;
     if (onlySelected && selectedQKeys !== null && selectedQKeys.size === 0) {
       toast('请先勾选要导出的提问');
@@ -1486,6 +1473,80 @@
     return box;
   }
 
+  // ---- 导出格式选择弹窗(目录“导出选中”统一入口,复用 exportConversation,不复制采集逻辑) ----
+  let exportDialogEscBound = false;
+  function ensureExportDialog() {
+    let mask = document.querySelector('#docdeep-export-dialog');
+    if (mask) return mask;
+    mask = document.createElement('div');
+    mask.id = 'docdeep-export-dialog';
+    mask.className = INJECTED;
+    mask.setAttribute('role', 'dialog');
+    mask.setAttribute('aria-modal', 'true');
+    mask.setAttribute('aria-label', '选择导出格式');
+    mask.style.display = 'none';
+    const panel = document.createElement('div');
+    panel.className = 'doc-export-dialog-panel ' + INJECTED;
+    const title = document.createElement('div');
+    title.className = 'doc-export-dialog-title ' + INJECTED;
+    title.textContent = '选择导出格式';
+    const sub = document.createElement('div');
+    sub.className = 'doc-export-dialog-sub ' + INJECTED;
+    sub.textContent = '仅导出已勾选内容';
+    const mdBtn = document.createElement('button');
+    mdBtn.type = 'button';
+    mdBtn.className = 'doc-export-btn ' + INJECTED;
+    mdBtn.textContent = '导出 Markdown';
+    mdBtn.setAttribute('aria-label', '导出已选内容为 Markdown');
+    mdBtn.addEventListener('click', () => {
+      closeExportDialog();
+      exportConversation('md', { onlySelected: true });
+    });
+    const htmlBtn = document.createElement('button');
+    htmlBtn.type = 'button';
+    htmlBtn.className = 'doc-export-btn ' + INJECTED;
+    htmlBtn.textContent = '导出 HTML';
+    htmlBtn.setAttribute('aria-label', '导出已选内容为 HTML');
+    htmlBtn.addEventListener('click', () => {
+      closeExportDialog();
+      exportConversation('html', { onlySelected: true });
+    });
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'doc-export-btn doc-export-close ' + INJECTED;
+    closeBtn.textContent = '关闭';
+    closeBtn.setAttribute('aria-label', '关闭导出格式选择');
+    closeBtn.addEventListener('click', closeExportDialog);
+    panel.append(title, sub, mdBtn, htmlBtn, closeBtn);
+    mask.appendChild(panel);
+    mask.addEventListener('mousedown', (e) => {
+      if (e.target === mask) closeExportDialog();
+    });
+    document.body.appendChild(mask);
+    if (!exportDialogEscBound) {
+      exportDialogEscBound = true;
+      document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape' && e.key !== 'Esc') return;
+        const m = document.querySelector('#docdeep-export-dialog');
+        if (m && m.style.display !== 'none') closeExportDialog();
+      }, true);
+    }
+    return mask;
+  }
+  function openExportDialog() {
+    const mask = ensureExportDialog();
+    try {
+      const selN = selectedQKeys === null ? qOrder.length : selectedQKeys.size;
+      const sub = mask.querySelector('.doc-export-dialog-sub');
+      if (sub) sub.textContent = `仅导出已勾选内容（${selN}/${qOrder.length}）`;
+    } catch {}
+    mask.style.display = 'flex';
+    try { mask.querySelector('.doc-export-btn')?.focus?.(); } catch {}
+  }
+  function closeExportDialog() {
+    try { document.querySelector('#docdeep-export-dialog')?.style.setProperty('display', 'none'); } catch {}
+  }
+
   // Phase-3: 勾选栏(全选/清空/仅看已选/导出选中),挂载于补全按钮下、列表上,随大纲摘除
   function ensureSelBar(b) {
     let bar = b.querySelector('.doc-ol-selbar');
@@ -1504,7 +1565,7 @@
     const all = mk('全选', '全选所有提问', () => { selectedQKeys = new Set(qOrder); outlineDirty = true; buildOutline(); });
     const none = mk('清空', '清空已选提问', () => { selectedQKeys = new Set(); outlineDirty = true; buildOutline(); });
     const only = mk('仅看已选', '只显示已选提问', () => { onlySelectedView = !onlySelectedView; outlineDirty = true; buildOutline(); });
-    const exp = mk('导出选中', '仅导出已选提问为 Markdown', () => { exportConversation('md', { onlySelected: true }); });
+    const exp = mk('导出选中', '选择导出格式,仅导出已选提问', () => { openExportDialog(); });
     exp.classList.add('doc-ol-sel-export');
     bar.append(all, none, only, exp);
     const lst = b.querySelector('.doc-ol-list');
