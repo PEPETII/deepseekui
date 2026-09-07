@@ -77,6 +77,12 @@ html[data-docdeep="on"] {
   --dd-btn-primary-hover: #45413C;
   --dd-btn-primary-ink: #FFFFFF;
 
+  /* ---- 查找文字命中高亮（普通浅黄 / 当前更强橙，深浅主题分别保证对比）---- */
+  --dd-find-bg: #FFE58F;
+  --dd-find-ink: #2D2A26;
+  --dd-find-active-bg: #FF9E2C;
+  --dd-find-active-ink: #1B1D22;
+
   /* ---- 动效：三档时长 + 统一缓出 ---- */
   --dd-ease: cubic-bezier(.2, 0, 0, 1);
   --dd-dur-fast: .15s;
@@ -157,6 +163,12 @@ html[data-docdeep="on"][data-doctheme="mo"] {
   --dd-btn-primary: #E6E4DF;
   --dd-btn-primary-hover: #FFFFFF;
   --dd-btn-primary-ink: #15161A;
+
+  /* 查找高亮深色分支：普通半透明金黄仍衬浅字，当前实心橙配深字 */
+  --dd-find-bg: rgba(255, 213, 74, .38);
+  --dd-find-ink: #FFF8E1;
+  --dd-find-active-bg: #FFB020;
+  --dd-find-active-ink: #1B1D22;
 }
 
 html[data-docdeep="on"] body {
@@ -785,6 +797,31 @@ html[data-docdeep="on"] [data-doc-search-hit].doc-search-active {
   outline-color: var(--dd-brand);
   background: var(--dd-brand-weak);
 }
+/* ---------- 查找文字命中高亮（主要定位方式，容器外框仅保留为辅助）---------- */
+/* CSS Custom Highlight API 主路径：不改 DOM，不影响复制/选中/代码块 */
+html[data-docdeep="on"]::highlight(docdeep-find) {
+  background-color: var(--dd-find-bg);
+  color: var(--dd-find-ink);
+}
+html[data-docdeep="on"]::highlight(docdeep-find-active) {
+  background-color: var(--dd-find-active-bg);
+  color: var(--dd-find-active-ink);
+}
+/* 回退路径：可逆 <mark> 包裹（关闭/改词即解包还原，不带 docdeep-injected 以免误删正文） */
+html[data-docdeep="on"] .docdeep-find-mark {
+  background-color: var(--dd-find-bg);
+  color: var(--dd-find-ink);
+  border-radius: 3px;
+  padding: 0 1px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+html[data-docdeep="on"] .docdeep-find-mark.doc-find-active {
+  background-color: var(--dd-find-active-bg);
+  color: var(--dd-find-active-ink);
+  outline: 2px solid var(--dd-find-active-bg);
+  outline-offset: 1px;
+}
 
 /* ---------- 右侧大纲 ---------- */
 html[data-docdeep="on"] #docdeep-outline {
@@ -1312,4 +1349,15 @@ html[data-docdeep="on"] #docdeep-export-dialog .doc-export-close {
   }
   html[data-docdeep="on"] .ds-message,
   html[data-docdeep="on"] [data-docturn] { max-width: 100% !important; padding-left: 0 !important; padding-right: 0 !important; }
+  /* 打印时不带查找高亮，回归干净文档 */
+  html[data-docdeep="on"] .docdeep-find-mark {
+    background: transparent !important;
+    color: inherit !important;
+    outline: none !important;
+  }
+  html[data-docdeep="on"]::highlight(docdeep-find),
+  html[data-docdeep="on"]::highlight(docdeep-find-active) {
+    background-color: transparent;
+    color: inherit;
+  }
 }

@@ -1,6 +1,6 @@
-// popup v0.3.15: 阅读设置 + 搜索/导出 + 本地会话收藏
+// popup v0.3.16: 阅读设置 + 搜索/导出 + 本地会话收藏
 const $ = (id) => document.getElementById(id);
-const POPUP_VER = '0.3.15';
+const POPUP_VER = '0.3.16';
 const DEFAULTS = { docdeep_enabled: true, docdeep_width: 880, docdeep_font: 17, docdeep_theme: 'mi', docdeep_outline: true, docdeep_keys: true, docdeep_hide_native: false };
 const BOOKMARKS_KEY = 'docdeep_bookmarks';
 const SCHEMA_VER = 2;
