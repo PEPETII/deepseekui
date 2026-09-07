@@ -1,0 +1,1250 @@
+/* DeepSeek 文档化阅读 v0.3 — 纯视觉重排，不动功能节点。
+   所有规则以 html[data-docdeep="on"] 开头，关闭即恢复原站。
+   版式由 JS 经 --doc-paper-w / --doc-font 变量注入，主题经 data-doctheme 切换。
+   v0.3.4-ui：注入组件统一走 --dd-* 设计令牌，主题只需覆盖令牌。
+   v0.3.9-skin：整体换肤为「温润纸感」——三级纸面、赤陶点睛、暖调文字、
+   多层柔和阴影（透明度 ≤.08）、动效三档（.15s/.2s/.3s，统一缓出）。
+   强调色赤陶 #C06B52 全屏控制在 5 处以内，只标"当前位置"与"可点动作"。 */
+
+html[data-docdeep="on"] {
+  --doc-paper-w: 880px;
+  --doc-font: 17px;
+
+  /* ---- 注入 UI 设计令牌（温润纸感 · 默认主题）----
+     三级纸面：应用底 #F8F7F4 → 侧栏/浮层面 #F1EFE8 → 卡片纯白 #FFFFFF
+     层级靠明度差建立，阴影只做辅助。 */
+  --dd-surface: #F1EFE8;
+  --dd-surface-2: #FFFFFF;
+  --dd-surface-sunken: #E8E5DC;
+  --dd-line: #E2DBD2;
+  --dd-line-strong: #BBAEA0;
+  --dd-text: #2D2A26;
+  --dd-text-2: #574F45;
+  --dd-muted: #797368;
+  --dd-brand: #C06B52;
+  --dd-brand-strong: #AB5E48;
+  --dd-brand-weak: #F7EEE9;
+  --dd-brand-line: #E4C7BC;
+  --dd-hover: #E8E5DC;
+  --dd-radius-sm: 6px;
+  --dd-radius: 10px;
+  --dd-radius-lg: 16px;
+  --dd-shadow: 0 1px 2px rgba(45, 42, 38, .05), 0 4px 12px rgba(45, 42, 38, .05), 0 10px 30px rgba(45, 42, 38, .08);
+  --dd-shadow-soft: 0 1px 2px rgba(45, 42, 38, .05), 0 4px 12px rgba(45, 42, 38, .04);
+  --dd-shadow-hover: 0 2px 4px rgba(45, 42, 38, .06), 0 6px 16px rgba(45, 42, 38, .06), 0 14px 40px rgba(45, 42, 38, .08);
+  --dd-z: 2147483000;
+  --dd-font: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB",
+    "Microsoft YaHei", "Noto Sans SC", sans-serif;
+  --dd-font-serif: "Newsreader", "Songti SC", "Noto Serif SC",
+    "Source Han Serif SC", "STSong", "SimSun", serif;
+
+  /* ---- 语义补充色：淡金黄（引用块 / 行内代码）---- */
+  --dd-focus-bg: #FBF6E7;
+  --dd-focus-line: #C9A227;
+  --dd-focus-ink: #6B5F3F;
+  --dd-focus-text: #8A6A1F;
+
+  /* ---- 语义补充色：用户问块的淡赤陶底 ---- */
+  --dd-accent-wash: #F4EEE9;
+  --dd-accent-wash-line: #E8DDD6;
+
+  /* ---- 柔光与悬停叠加 ---- */
+  --dd-accent-soft: rgba(192, 107, 82, .12);
+  --dd-accent-soft-hover: rgba(192, 107, 82, .22);
+  --dd-hover-tint: rgba(45, 42, 38, .04);
+  --dd-hover-tint-strong: rgba(45, 42, 38, .06);
+  --dd-scrollbar-thumb: rgba(45, 42, 38, .15);
+  --dd-scrollbar-thumb-hover: rgba(45, 42, 38, .25);
+
+  /* ---- 代码块（浅色主题：纸感浅底）---- */
+  --dd-code-bg: #F1EFE8;
+  --dd-code-ink: #2D2A26;
+  --dd-code-line: #E2DBD2;
+  --dd-code-head-bg: rgba(45, 42, 38, .04);
+  --dd-code-head-ink: #797368;
+
+  /* ---- 提示条 / 导出进度（浅色主题：纯白卡）---- */
+  --dd-toast-bg: #FFFFFF;
+  --dd-toast-ink: #2D2A26;
+  --dd-toast-line: #E2DBD2;
+  --dd-toast-btn-line: rgba(45, 42, 38, .25);
+  --dd-toast-btn-hover: rgba(45, 42, 38, .06);
+  --dd-toast-spin: var(--dd-brand);
+  --dd-toast-focus: #C06B52;
+
+  /* ---- 按钮基础色：主按钮深墨（模板同款），赤陶只留给状态与当前位置 ---- */
+  --dd-btn-primary: #2D2A26;
+  --dd-btn-primary-hover: #45413C;
+  --dd-btn-primary-ink: #FFFFFF;
+
+  /* ---- 动效：三档时长 + 统一缓出 ---- */
+  --dd-ease: cubic-bezier(.2, 0, 0, 1);
+  --dd-dur-fast: .15s;
+  --dd-dur-base: .2s;
+  --dd-dur-slow: .3s;
+}
+
+/* 纯白主题：只换令牌（温润纸感的更白变体，弱化暖调但不脱离纸感） */
+html[data-docdeep="on"][data-doctheme="bai"] {
+  --dd-surface: #F4F3F0;
+  --dd-surface-2: #FFFFFF;
+  --dd-surface-sunken: #EBEAE6;
+  --dd-line: #E6E4DF;
+  --dd-line-strong: #C9C5BD;
+  --dd-text: #2D2A26;
+  --dd-text-2: #574F45;
+  --dd-muted: #797368;
+  --dd-hover: #F1F0EC;
+  --dd-shadow: 0 1px 2px rgba(45, 42, 38, .05), 0 4px 12px rgba(45, 42, 38, .05), 0 10px 30px rgba(45, 42, 38, .08);
+  --dd-shadow-soft: 0 1px 2px rgba(45, 42, 38, .05), 0 4px 12px rgba(45, 42, 38, .04);
+  --dd-shadow-hover: 0 2px 4px rgba(45, 42, 38, .06), 0 6px 16px rgba(45, 42, 38, .06), 0 14px 40px rgba(45, 42, 38, .08);
+
+  --dd-btn-primary: #2D2A26;
+  --dd-btn-primary-hover: #45413C;
+  --dd-btn-primary-ink: #FFFFFF;
+}
+
+/* 墨色主题：只换令牌（温润纸感的深色分支） */
+html[data-docdeep="on"][data-doctheme="mo"] {
+  --dd-surface: #23262C;
+  --dd-surface-2: #2C2F36;
+  --dd-surface-sunken: #1B1D22;
+  --dd-line: #2F333A;
+  --dd-line-strong: #4A505A;
+  --dd-text: #E6E4DF;
+  --dd-text-2: #B4AFA6;
+  --dd-muted: #9A958B;
+  --dd-brand: #E08A6F;
+  --dd-brand-strong: #EAA088;
+  --dd-brand-weak: #3A2B26;
+  --dd-brand-line: #5C4038;
+  --dd-hover: #2F333A;
+  --dd-shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 4px 14px rgba(0, 0, 0, .25), 0 12px 32px rgba(0, 0, 0, .45);
+  --dd-shadow-soft: 0 1px 2px rgba(0, 0, 0, .25), 0 4px 14px rgba(0, 0, 0, .3);
+  --dd-shadow-hover: 0 2px 4px rgba(0, 0, 0, .35), 0 6px 18px rgba(0, 0, 0, .3), 0 16px 40px rgba(0, 0, 0, .5);
+
+  --dd-focus-bg: rgba(184, 134, 11, .18);
+  --dd-focus-line: #E8C547;
+  --dd-focus-ink: #C9BCA0;
+  --dd-focus-text: #E8C547;
+
+  --dd-accent-wash: #2E2622;
+  --dd-accent-wash-line: #45382F;
+
+  --dd-accent-soft: rgba(224, 138, 111, .16);
+  --dd-accent-soft-hover: rgba(224, 138, 111, .28);
+  --dd-hover-tint: rgba(255, 255, 255, .05);
+  --dd-hover-tint-strong: rgba(255, 255, 255, .08);
+  --dd-scrollbar-thumb: rgba(255, 255, 255, .14);
+  --dd-scrollbar-thumb-hover: rgba(255, 255, 255, .24);
+
+  /* 代码块（深色主题：深墨底） */
+  --dd-code-bg: #1B1D22;
+  --dd-code-ink: #E6E4DF;
+  --dd-code-line: #2F333A;
+  --dd-code-head-bg: rgba(255, 255, 255, .06);
+  --dd-code-head-ink: #9A958B;
+
+  /* 提示条 / 导出进度（深色主题：深卡） */
+  --dd-toast-bg: #2C2F36;
+  --dd-toast-ink: #E6E4DF;
+  --dd-toast-line: #3A3F48;
+  --dd-toast-btn-line: rgba(255, 255, 255, .5);
+  --dd-toast-btn-hover: rgba(255, 255, 255, .14);
+  --dd-toast-spin: var(--dd-brand);
+  --dd-toast-focus: #E08A6F;
+
+  --dd-btn-primary: #E6E4DF;
+  --dd-btn-primary-hover: #FFFFFF;
+  --dd-btn-primary-ink: #15161A;
+}
+
+html[data-docdeep="on"] body {
+  background: #F8F7F4 !important;
+  font-family: var(--dd-font) !important;
+  text-autospace: normal;
+}
+
+/* ---------- 中央纸张：消息滚动区 ---------- */
+html[data-docdeep="on"] .ds-virtual-list,
+html[data-docdeep="on"] .ds-virtual-list-items,
+html[data-docdeep="on"] .ds-virtual-list-visible-items {
+  background: transparent !important;
+}
+
+/* 每个轮次收窄居中成纸(注: 必须同时 width:100%, 否则在 flex/窄父容器下 max-width 改了也看不见) */
+html[data-docdeep="on"] body .ds-message,
+html[data-docdeep="on"] body [data-message-id],
+html[data-docdeep="on"] body [data-docturn] {
+  width: 100% !important;
+  max-width: var(--doc-paper-w) !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  padding-left: 40px !important;
+  padding-right: 40px !important;
+  box-sizing: border-box !important;
+}
+
+/* v0.2.3 祖先列限宽: 探针证实轮次父层仅752px, 光控轮次不够。
+   解除消息区与主区各 div 的 max-width 上限(:where 特异性归零, 轮次/form 自身规则不受影响,
+   由它们自己的 max-width:var(--doc-paper-w) 接管)。 */
+html[data-docdeep="on"] body .ds-virtual-list :where(div),
+html[data-docdeep="on"] body main :where(div) {
+  max-width: none !important;
+}
+
+/* ---------- 用户问：节标题签，去气泡 ---------- */
+html[data-docdeep="on"] .ds-message:not(:has(.ds-assistant-message-main-content)) {
+  margin-top: 30px !important;
+  margin-bottom: 8px !important;
+}
+html[data-docdeep="on"] .ds-message:not(:has(.ds-assistant-message-main-content)) > div:first-child {
+  background: var(--dd-accent-wash) !important;
+  border: 1px solid var(--dd-accent-wash-line) !important;
+  border-radius: var(--dd-radius) !important;
+  box-shadow: none !important;
+  font-size: 15px !important;
+  line-height: 1.8 !important;
+  color: var(--dd-text) !important;
+  padding: 12px 16px !important;
+  max-width: 100% !important;
+}
+/* JS 注入的 Q 编号 */
+html[data-docdeep="on"] .doc-qtag {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  color: var(--dd-brand);
+  background: var(--dd-surface-2);
+  border: 1px solid var(--dd-brand-line);
+  border-radius: 999px;
+  padding: 1px 9px;
+  font-family: var(--dd-font-serif);
+  margin-right: 9px;
+  line-height: 20px;
+  vertical-align: 1px;
+  white-space: nowrap;
+}
+/* 超长用户问折叠 */
+html[data-docdeep="on"] .doc-user-collapsed > div:first-child {
+  max-height: 132px !important;
+  overflow: hidden !important;
+  position: relative;
+}
+html[data-docdeep="on"] .doc-user-collapsed > div:first-child::after {
+  content: "";
+  position: absolute; left: 0; right: 0; bottom: 0; height: 56px;
+  background: linear-gradient(transparent, var(--dd-accent-wash));
+}
+html[data-docdeep="on"] .doc-expand {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--dd-text-2);
+  background: transparent;
+  border: 1px solid var(--dd-line);
+  border-radius: 999px;
+  padding: 2px 12px;
+  cursor: pointer;
+  font-family: var(--dd-font);
+  transition: background-color var(--dd-dur-fast) var(--dd-ease), border-color var(--dd-dur-fast) var(--dd-ease);
+}
+html[data-docdeep="on"] .doc-expand:hover { background: var(--dd-hover); border-color: var(--dd-line-strong); }
+html[data-docdeep="on"] .doc-expand:focus-visible { outline: 2px solid var(--dd-line-strong); outline-offset: 2px; }
+
+/* ---------- AI 答：正文章节，去气泡 ---------- */
+html[data-docdeep="on"] .ds-message:has(.ds-assistant-message-main-content) {
+  background: #FFFFFF !important;
+  border: 1px solid var(--dd-line) !important;
+  border-radius: var(--dd-radius-lg) !important;
+  box-shadow: var(--dd-shadow) !important;
+  margin-top: 12px !important;
+  margin-bottom: 24px !important;
+  padding-top: 28px !important;
+  padding-bottom: 32px !important;
+  transition: box-shadow var(--dd-dur-slow) var(--dd-ease) !important;
+}
+/* 悬停时阴影扩散一档，而不是加粗描边 */
+html[data-docdeep="on"] .ds-message:has(.ds-assistant-message-main-content):hover {
+  box-shadow: var(--dd-shadow-hover) !important;
+}
+html[data-docdeep="on"] .ds-markdown.ds-assistant-message-main-content,
+html[data-docdeep="on"] .ds-assistant-message-main-content {
+  background: transparent !important;
+  box-shadow: none !important;
+  border: 0 !important;
+  font-size: var(--doc-font) !important;
+  line-height: 1.9 !important;
+  letter-spacing: .01em !important;
+  color: var(--dd-text) !important;
+  max-width: 100% !important;
+}
+html[data-docdeep="on"] .ds-markdown p { margin: .95em 0 !important; }
+/* 标题统一走衬线体，中文回退宋体 / 思源宋体 */
+html[data-docdeep="on"] .ds-markdown h1,
+html[data-docdeep="on"] .ds-markdown h2,
+html[data-docdeep="on"] .ds-markdown h3 {
+  font-family: var(--dd-font-serif) !important;
+  font-weight: 500 !important;
+  color: var(--dd-text) !important;
+}
+html[data-docdeep="on"] .ds-markdown h1 {
+  font-size: 25px !important; line-height: 1.45 !important; margin: 1.2em 0 .6em !important;
+  padding-bottom: .32em !important; border-bottom: 1px solid var(--dd-line) !important;
+  letter-spacing: -.01em !important;
+}
+html[data-docdeep="on"] .ds-markdown h2 {
+  font-size: 20px !important; line-height: 1.5 !important; margin: 1.15em 0 .5em !important;
+}
+html[data-docdeep="on"] .ds-markdown h2::before { content: "§ "; color: var(--dd-line-strong); font-weight: 400; }
+html[data-docdeep="on"] .ds-markdown h3 {
+  font-size: 17px !important; line-height: 1.55 !important; margin: 1em 0 .45em !important;
+  color: var(--dd-text-2) !important;
+}
+html[data-docdeep="on"] .ds-markdown ul, html[data-docdeep="on"] .ds-markdown ol {
+  padding-left: 1.6em !important; margin: .75em 0 !important;
+}
+html[data-docdeep="on"] .ds-markdown li { margin: .34em 0 !important; }
+html[data-docdeep="on"] .ds-markdown li::marker { color: var(--dd-brand); }
+html[data-docdeep="on"] .ds-markdown blockquote {
+  margin: 1.1em 0 !important; padding: 10px 16px !important;
+  border-left: 3px solid var(--dd-focus-line) !important;
+  background: var(--dd-focus-bg) !important; border-radius: 0 var(--dd-radius) var(--dd-radius) 0 !important;
+  color: var(--dd-focus-ink) !important;
+}
+html[data-docdeep="on"] .ds-markdown a { color: var(--dd-brand) !important; text-underline-offset: 3px; }
+html[data-docdeep="on"] .ds-markdown img { max-width: 100% !important; border-radius: var(--dd-radius) !important; }
+html[data-docdeep="on"] .ds-markdown hr { border: 0 !important; border-top: 1px dashed var(--dd-line) !important; margin: 2em 0 !important; }
+
+/* 表格：斑马线 + 粘头 */
+html[data-docdeep="on"] .ds-markdown table {
+  width: 100% !important; border-collapse: collapse !important;
+  font-size: 14.5px !important; line-height: 1.7 !important; margin: 1.1em 0 !important;
+  display: block !important; overflow-x: auto !important;
+}
+html[data-docdeep="on"] .ds-markdown thead th {
+  position: sticky; top: 0; background: var(--dd-surface-2) !important;
+}
+html[data-docdeep="on"] .ds-markdown th, html[data-docdeep="on"] .ds-markdown td {
+  border: 1px solid var(--dd-line) !important; padding: 8px 12px !important; text-align: left !important;
+}
+html[data-docdeep="on"] .ds-markdown tbody tr:nth-child(even) td { background: var(--dd-surface-2) !important; }
+
+/* 行内代码 vs 代码块 */
+html[data-docdeep="on"] .ds-markdown code {
+  font-family: "JetBrains Mono", Consolas, "Noto Sans Mono", monospace !important;
+}
+html[data-docdeep="on"] .ds-markdown :not(pre) > code {
+  background: var(--dd-surface-2) !important; border: 1px solid var(--dd-line) !important;
+  border-radius: var(--dd-radius-sm) !important; padding: 1px 6px !important;
+  font-size: .88em !important; color: var(--dd-focus-text) !important;
+}
+/* 整块代码走 --dd-code-* 双套令牌：浅色主题纸感浅底，墨色主题深墨底 */
+html[data-docdeep="on"] .ds-markdown pre,
+html[data-docdeep="on"] .md-code-block {
+  direction: ltr !important; text-align: left !important;
+  background: var(--dd-code-bg) !important; border-radius: var(--dd-radius) !important;
+  border: 1px solid var(--dd-code-line) !important;
+  margin: 1.1em 0 !important; overflow: auto !important;
+}
+html[data-docdeep="on"] .ds-markdown pre code {
+  background: transparent !important; color: var(--dd-code-ink) !important;
+  font-size: 13.5px !important; line-height: 1.75 !important;
+  display: block; padding: 14px 16px !important;
+}
+/* 代码头栏不动按钮，只换肤 */
+html[data-docdeep="on"] .md-code-block > div:first-child {
+  background: var(--dd-code-head-bg) !important; color: var(--dd-code-head-ink) !important;
+}
+
+/* 思考过程收成批注条（按钮是扩展注入的，不影响原文） */
+html[data-docdeep="on"] .ds-thinking,
+html[data-docdeep="on"] [class*="ds-thinking"],
+html[data-docdeep="on"] [data-thinking] {
+  font-size: 13px !important; color: var(--dd-muted) !important;
+  background: var(--dd-surface-2) !important; border: 1px dashed var(--dd-line) !important;
+  border-radius: var(--dd-radius) !important; padding: 8px 12px !important; margin-bottom: 12px !important;
+}
+html[data-docdeep="on"] .doc-think-collapsed .ds-thinking-inner {
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+html[data-docdeep="on"] .doc-thinkbtn {
+  font-size: 12px;
+  color: var(--dd-text-2);
+  background: var(--dd-surface);
+  border: 1px solid var(--dd-line);
+  border-radius: 999px;
+  padding: 3px 12px;
+  cursor: pointer;
+  margin-bottom: 10px;
+  font-family: var(--dd-font);
+  transition: border-color var(--dd-dur-fast) var(--dd-ease), color var(--dd-dur-fast) var(--dd-ease), background-color var(--dd-dur-fast) var(--dd-ease);
+}
+html[data-docdeep="on"] .doc-thinkbtn:hover { border-color: var(--dd-line-strong); color: var(--dd-text); background: var(--dd-hover); }
+html[data-docdeep="on"] .doc-thinkbtn:focus-visible { outline: 2px solid var(--dd-line-strong); outline-offset: 2px; }
+
+/* 操作条弱化但可点 */
+html[data-docdeep="on"] .ds-message:has(.ds-assistant-message-main-content) button { opacity: .72; }
+html[data-docdeep="on"] .ds-message:has(.ds-assistant-message-main-content) button:hover { opacity: 1; }
+
+/* ---------- 写作区：文档底部指令栏 ---------- */
+html[data-docdeep="on"] textarea {
+  box-sizing: border-box !important;
+  font-size: 15px !important; line-height: 1.7 !important;
+  color: var(--dd-text) !important;
+  caret-color: var(--dd-brand) !important;
+  border-radius: var(--dd-radius-lg) !important;
+}
+html[data-docdeep="on"] textarea::placeholder { color: var(--dd-muted) !important; }
+html[data-docdeep="on"] body textarea:only-child,
+html[data-docdeep="on"] body form:has(textarea) {
+  max-width: var(--doc-paper-w) !important;
+  margin-left: auto !important; margin-right: auto !important;
+}
+html[data-docdeep="on"] body form:has(textarea) {
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+html[data-docdeep="on"] form:has(textarea) {
+  background: var(--dd-surface) !important;
+  border: 1px solid var(--dd-line) !important;
+  border-radius: var(--dd-radius-lg) !important;
+  box-shadow: var(--dd-shadow) !important;
+  color: var(--dd-text) !important;
+  padding: 12px 14px 10px !important;
+}
+/* 多行文本框：无边框，聚焦时左侧浮现一条 2px 强调色竖线（标志性细节） */
+html[data-docdeep="on"] body form:has(textarea) textarea {
+  background: var(--dd-surface-2) !important;
+  border: none !important;
+  border-left: 2px solid transparent !important;
+  border-radius: var(--dd-radius) !important;
+  box-shadow: none !important;
+  outline: none !important;
+  padding: 8px 12px !important;
+  transition: background-color var(--dd-dur-base) var(--dd-ease), border-color var(--dd-dur-base) var(--dd-ease), padding var(--dd-dur-base) var(--dd-ease);
+}
+html[data-docdeep="on"] body form:has(textarea) textarea:hover {
+  background: var(--dd-hover-tint) !important;
+}
+html[data-docdeep="on"] body form:has(textarea) textarea:focus {
+  background: var(--dd-surface-2) !important;
+  border-left-color: var(--dd-brand) !important;
+  padding-left: 14px !important;
+}
+html[data-docdeep="on"] body form:has(textarea):focus-within {
+  border-color: var(--dd-line-strong) !important;
+  box-shadow: 0 0 0 3px var(--dd-accent-soft), var(--dd-shadow-soft) !important;
+}
+html[data-docdeep="on"] form:has(textarea) :where(button) {
+  box-sizing: border-box !important;
+  border-radius: var(--dd-radius-sm) !important;
+  transition: background-color var(--dd-dur-fast) var(--dd-ease), border-color var(--dd-dur-fast) var(--dd-ease), color var(--dd-dur-fast) var(--dd-ease), box-shadow var(--dd-dur-fast) var(--dd-ease);
+}
+html[data-docdeep="on"] form:has(textarea) :where(button):hover {
+  background: var(--dd-hover) !important;
+  border-color: var(--dd-line-strong) !important;
+}
+html[data-docdeep="on"] form:has(textarea) :where(button):focus-visible {
+  outline: 2px solid var(--dd-line-strong) !important;
+  outline-offset: 2px !important;
+}
+html[data-docdeep="on"] form:has(textarea) button[type="submit"],
+html[data-docdeep="on"] form:has(textarea) button[aria-label*="发送"],
+html[data-docdeep="on"] form:has(textarea) button[aria-label*="Send"],
+html[data-docdeep="on"] form:has(textarea) button[data-testid*="send"],
+html[data-docdeep="on"] form:has(textarea) button:last-child {
+  background: var(--dd-btn-primary) !important;
+  border: 1px solid var(--dd-btn-primary) !important;
+  border-radius: var(--dd-radius) !important;
+  color: var(--dd-btn-primary-ink) !important;
+  box-shadow: var(--dd-shadow-soft) !important;
+}
+html[data-docdeep="on"] form:has(textarea) button[type="submit"]:hover,
+html[data-docdeep="on"] form:has(textarea) button[aria-label*="发送"]:hover,
+html[data-docdeep="on"] form:has(textarea) button[aria-label*="Send"]:hover,
+html[data-docdeep="on"] form:has(textarea) button[data-testid*="send"]:hover,
+html[data-docdeep="on"] form:has(textarea) button:last-child:hover {
+  background: var(--dd-btn-primary-hover) !important;
+  border-color: var(--dd-btn-primary-hover) !important;
+}
+html[data-docdeep="on"] form:has(textarea) button:disabled,
+html[data-docdeep="on"] form:has(textarea) button[aria-disabled="true"] {
+  background: var(--dd-surface-sunken) !important;
+  border-color: var(--dd-line) !important;
+  box-shadow: none !important;
+  color: var(--dd-muted) !important;
+  cursor: not-allowed !important;
+  opacity: .6 !important;
+}
+
+/* ---------- 左侧会话栏：纳入文档工作台 ---------- */
+/* 只接管视觉、盒模型和滚动反馈；不覆盖原生 width/position/display, 保留展开折叠。 */
+html[data-docdeep="on"] [data-docshell="side"] {
+  box-sizing: border-box !important;
+  color: var(--dd-text-2) !important;
+  font-family: var(--dd-font) !important;
+  font-size: 14px !important;
+  line-height: 1.5 !important;
+  background-color: var(--dd-surface) !important;
+  border-right: 1px solid var(--dd-line) !important;
+  scrollbar-color: var(--dd-scrollbar-thumb) transparent;
+  scrollbar-width: thin;
+  overscroll-behavior: contain;
+}
+html[data-docdeep="on"] [data-docshell="side"] > * { box-sizing: border-box; }
+/* 覆盖站点内层列表容器背景，但输入框仍保留自己的表单颜色。 */
+html[data-docdeep="on"] [data-docshell="side"] *:not(input):not(textarea) {
+  background-color: var(--dd-surface) !important;
+}
+html[data-docdeep="on"] [data-docshell="side"] :where(a, [role="link"]) {
+  box-sizing: border-box !important;
+  display: block !important;
+  min-height: 34px !important;
+  margin: 2px 8px !important;
+  padding: 7px 10px !important;
+  overflow: hidden;
+  border: 1px solid transparent !important;
+  border-radius: var(--dd-radius-sm) !important;
+  color: var(--dd-text-2) !important;
+  font: inherit !important;
+  line-height: 1.45 !important;
+  text-decoration: none !important;
+  transition: background-color var(--dd-dur-fast) var(--dd-ease), border-color var(--dd-dur-fast) var(--dd-ease), color var(--dd-dur-fast) var(--dd-ease);
+}
+html[data-docdeep="on"] [data-docshell="side"] :where(button, [role="button"]) {
+  box-sizing: border-box !important;
+  color: var(--dd-text-2) !important;
+  font-family: var(--dd-font) !important;
+  border-radius: var(--dd-radius-sm) !important;
+  transition: background-color var(--dd-dur-fast) var(--dd-ease), border-color var(--dd-dur-fast) var(--dd-ease), color var(--dd-dur-fast) var(--dd-ease);
+}
+html[data-docdeep="on"] [data-docshell="side"] :where(a, button, [role="link"], [role="button"]):hover {
+  background-color: var(--dd-hover) !important;
+  border-color: transparent !important;
+  color: var(--dd-text) !important;
+}
+html[data-docdeep="on"] [data-docshell="side"] :where(a, button, [role="link"], [role="button"]):focus-visible {
+  outline: 2px solid var(--dd-line-strong) !important;
+  outline-offset: -2px !important;
+}
+html[data-docdeep="on"] [data-docshell="side"] :where(a, button, [role="link"], [role="button"])[aria-current="page"],
+html[data-docdeep="on"] [data-docshell="side"] :where(a, button, [role="link"], [role="button"])[aria-selected="true"],
+html[data-docdeep="on"] [data-docshell="side"] :where(a, button, [role="link"], [role="button"])[data-active="true"],
+html[data-docdeep="on"] [data-docshell="side"] :where(a, button, [role="link"], [role="button"])[data-state="active"] {
+  background-color: var(--dd-brand-weak) !important;
+  border-color: var(--dd-brand-line) !important;
+  color: var(--dd-brand-strong) !important;
+}
+html[data-docdeep="on"] [data-docshell="side"] :where(a, button, [role="link"], [role="button"]):hover > *,
+html[data-docdeep="on"] [data-docshell="side"] :where(a, button, [role="link"], [role="button"])[aria-current="page"] > *,
+html[data-docdeep="on"] [data-docshell="side"] :where(a, button, [role="link"], [role="button"])[aria-selected="true"] > *,
+html[data-docdeep="on"] [data-docshell="side"] :where(a, button, [role="link"], [role="button"])[data-active="true"] > *,
+html[data-docdeep="on"] [data-docshell="side"] :where(a, button, [role="link"], [role="button"])[data-state="active"] > * {
+  background-color: transparent !important;
+}
+html[data-docdeep="on"] [data-docshell="side"]::-webkit-scrollbar { width: 8px; height: 8px; }
+html[data-docdeep="on"] [data-docshell="side"]::-webkit-scrollbar-thumb {
+  background: var(--dd-scrollbar-thumb); border: 2px solid transparent; border-radius: 999px; background-clip: content-box;
+}
+html[data-docdeep="on"] [data-docshell="side"]::-webkit-scrollbar-thumb:hover {
+  background: var(--dd-scrollbar-thumb-hover); border: 2px solid transparent; border-radius: 999px; background-clip: content-box;
+}
+/* ---------- 顶栏瘦身 ---------- */
+html[data-docdeep="on"] [data-docshell="header"], html[data-docdeep="on"] header {
+  background: rgba(248, 247, 244, .92) !important;
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--dd-line) !important;
+  min-height: 48px !important;
+}
+
+/* 流式时的光标不抖 */
+html[data-docdeep="on"] .ds-markdown.ds-assistant-message-main-content { overflow-wrap: anywhere; }
+
+@media (max-width: 960px) {
+  html[data-docdeep="on"] .ds-message,
+  html[data-docdeep="on"] [data-message-id],
+  html[data-docdeep="on"] [data-docturn] { padding-left: 16px !important; padding-right: 16px !important; }
+  html[data-docdeep="on"] .ds-message:has(.ds-assistant-message-main-content) { border-radius: 0 !important; border-left: 0 !important; border-right: 0 !important; }
+  html[data-docdeep="on"] [data-docshell="side"] { font-size: 13px !important; }
+  html[data-docdeep="on"] [data-docshell="side"] :where(a, [role="link"]) {
+    min-height: 32px !important; margin-left: 6px !important; margin-right: 6px !important;
+    padding-left: 8px !important; padding-right: 8px !important;
+  }
+}
+
+/* ---------- v0.2 主题（正文部分，v0.3.9 起全部走令牌）---------- */
+html[data-docdeep="on"][data-doctheme="bai"] body { background: #FBFBF9 !important; }
+html[data-docdeep="on"][data-doctheme="bai"] .ds-message:has(.ds-assistant-message-main-content) {
+  background: var(--dd-surface-2) !important; border-color: var(--dd-line) !important;
+}
+html[data-docdeep="on"][data-doctheme="bai"] form:has(textarea) {
+  background: var(--dd-surface) !important; border-color: var(--dd-line) !important;
+}
+html[data-docdeep="on"][data-doctheme="bai"] .ds-message:not(:has(.ds-assistant-message-main-content)) > div:first-child {
+  background: var(--dd-accent-wash) !important; border-color: var(--dd-accent-wash-line) !important;
+}
+html[data-docdeep="on"][data-doctheme="bai"] .doc-user-collapsed > div:first-child::after {
+  background: linear-gradient(transparent, var(--dd-accent-wash));
+}
+html[data-docdeep="on"][data-doctheme="mo"] body { background: #15161A !important; }
+html[data-docdeep="on"][data-doctheme="mo"] .ds-message:has(.ds-assistant-message-main-content) {
+  background: var(--dd-surface) !important; border-color: var(--dd-line) !important; box-shadow: none !important;
+}
+html[data-docdeep="on"][data-doctheme="mo"] .ds-message:not(:has(.ds-assistant-message-main-content)) > div:first-child {
+  background: var(--dd-accent-wash) !important; border-color: var(--dd-accent-wash-line) !important; color: var(--dd-text) !important;
+}
+html[data-docdeep="on"][data-doctheme="mo"] .doc-user-collapsed > div:first-child::after {
+  background: linear-gradient(transparent, var(--dd-accent-wash));
+}
+html[data-docdeep="on"][data-doctheme="mo"] .doc-qtag {
+  background: var(--dd-surface-sunken); border-color: var(--dd-brand-line); color: var(--dd-brand);
+}
+html[data-docdeep="on"][data-doctheme="mo"] .ds-markdown.ds-assistant-message-main-content,
+html[data-docdeep="on"][data-doctheme="mo"] .ds-assistant-message-main-content { color: var(--dd-text) !important; }
+html[data-docdeep="on"][data-doctheme="mo"] .ds-markdown h1 { border-bottom-color: var(--dd-line) !important; }
+html[data-docdeep="on"][data-doctheme="mo"] .ds-markdown h3 { color: var(--dd-text-2) !important; }
+html[data-docdeep="on"][data-doctheme="mo"] .ds-markdown blockquote {
+  background: var(--dd-focus-bg) !important; border-left-color: var(--dd-focus-line) !important; color: var(--dd-focus-ink) !important;
+}
+html[data-docdeep="on"][data-doctheme="mo"] .ds-markdown table th,
+html[data-docdeep="on"][data-doctheme="mo"] .ds-markdown table td { border-color: var(--dd-line) !important; }
+html[data-docdeep="on"][data-doctheme="mo"] .ds-markdown thead th { background: var(--dd-surface-2) !important; }
+html[data-docdeep="on"][data-doctheme="mo"] .ds-markdown tbody tr:nth-child(even) td { background: var(--dd-surface-2) !important; }
+html[data-docdeep="on"][data-doctheme="mo"] .ds-markdown :not(pre) > code {
+  background: var(--dd-surface-2) !important; border-color: var(--dd-line) !important; color: var(--dd-focus-text) !important;
+}
+html[data-docdeep="on"][data-doctheme="mo"] form:has(textarea) {
+  background: var(--dd-surface) !important; border-color: var(--dd-line) !important; box-shadow: var(--dd-shadow-soft) !important;
+}
+html[data-docdeep="on"][data-doctheme="mo"] [data-docshell="header"], html[data-docdeep="on"][data-doctheme="mo"] header { background: rgba(21, 22, 26, .92) !important; border-bottom-color: var(--dd-line) !important; }
+
+/* ============ v0.3-ui 注入组件：统一走 --dd-* 令牌 ============ */
+
+/* ---------- 右下悬浮栈：查找面板在上，工具条在下 ---------- */
+html[data-docdeep="on"] #docdeep-dock {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: var(--dd-z);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  max-width: min(460px, calc(100vw - 32px));
+  pointer-events: none;
+}
+html[data-docdeep="on"] #docdeep-dock > * { pointer-events: auto; }
+
+html[data-docdeep="on"] #docdeep-tools {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  padding: 8px;
+  background: var(--dd-surface);
+  border: 1px solid var(--dd-line);
+  border-radius: var(--dd-radius-lg);
+  box-shadow: var(--dd-shadow);
+  font-family: var(--dd-font);
+  max-width: 100%;
+  /* 操作栏默认半透明，鼠标悬停容器时才点亮为不透明（标志性细节） */
+  opacity: .55;
+  transition: opacity var(--dd-dur-base) var(--dd-ease);
+}
+html[data-docdeep="on"] #docdeep-dock:hover #docdeep-tools { opacity: 1; }
+html[data-docdeep="on"] #docdeep-tools .doc-tools-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+html[data-docdeep="on"] #docdeep-tools .doc-tools-row--sub {
+  padding-top: 8px;
+  border-top: 1px solid var(--dd-line);
+}
+html[data-docdeep="on"] #docdeep-tools button {
+  border: 1px solid var(--dd-line);
+  background: var(--dd-surface-2);
+  color: var(--dd-text-2);
+  border-radius: var(--dd-radius-sm);
+  font-size: 12px;
+  line-height: 1;
+  padding: 7px 11px;
+  cursor: pointer;
+  font-family: var(--dd-font);
+  white-space: nowrap;
+  transition: background-color var(--dd-dur-fast) var(--dd-ease), border-color var(--dd-dur-fast) var(--dd-ease), color var(--dd-dur-fast) var(--dd-ease);
+}
+html[data-docdeep="on"] #docdeep-tools button:hover {
+  border-color: var(--dd-line-strong);
+  background: var(--dd-hover);
+  color: var(--dd-text);
+}
+html[data-docdeep="on"] #docdeep-tools button:active { transform: translateY(.5px); }
+html[data-docdeep="on"] #docdeep-tools button:focus-visible {
+  outline: 2px solid var(--dd-line-strong);
+  outline-offset: 2px;
+}
+html[data-docdeep="on"] #docdeep-tools .doc-tools-meta {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 2px;
+  font-size: 11px;
+  color: var(--dd-muted);
+}
+html[data-docdeep="on"] #docdeep-ver {
+  font-size: 10px;
+  color: var(--dd-muted);
+  white-space: nowrap;
+  letter-spacing: .02em;
+}
+html[data-docdeep="on"] #docdeep-count {
+  flex: none;
+  font-size: 11px;
+  color: var(--dd-text-2);
+  background: var(--dd-surface-sunken);
+  border: 1px solid var(--dd-line);
+  border-radius: 999px;
+  padding: 1px 9px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- 当前会话查找 ---------- */
+html[data-docdeep="on"] #docdeep-find {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  padding: 8px;
+  background: var(--dd-surface);
+  border: 1px solid var(--dd-line);
+  border-radius: var(--dd-radius);
+  box-shadow: var(--dd-shadow);
+  font-family: var(--dd-font);
+  max-width: 100%;
+}
+html[data-docdeep="on"] #docdeep-find input {
+  width: min(46vw, 260px);
+  min-width: 120px;
+  border: 1px solid var(--dd-line);
+  border-radius: var(--dd-radius-sm);
+  padding: 6px 10px;
+  font-size: 12.5px;
+  font-family: var(--dd-font);
+  color: var(--dd-text);
+  background: var(--dd-surface-2);
+  outline: none;
+  transition: border-color var(--dd-dur-base) var(--dd-ease), box-shadow var(--dd-dur-base) var(--dd-ease);
+}
+html[data-docdeep="on"] #docdeep-find input::placeholder { color: var(--dd-muted); }
+html[data-docdeep="on"] #docdeep-find input:hover { border-color: var(--dd-line-strong); }
+/* 聚焦时长出一圈 3px 的强调色柔光环（标志性细节） */
+html[data-docdeep="on"] #docdeep-find input:focus {
+  border-color: var(--dd-line-strong);
+  box-shadow: 0 0 0 3px var(--dd-accent-soft);
+}
+html[data-docdeep="on"] #docdeep-find button {
+  min-width: 28px;
+  height: 26px;
+  border: 1px solid var(--dd-line);
+  border-radius: var(--dd-radius-sm);
+  padding: 0 7px;
+  background: var(--dd-surface-2);
+  color: var(--dd-text-2);
+  cursor: pointer;
+  font-size: 12px;
+  font-family: var(--dd-font);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color var(--dd-dur-fast) var(--dd-ease), border-color var(--dd-dur-fast) var(--dd-ease), color var(--dd-dur-fast) var(--dd-ease);
+}
+html[data-docdeep="on"] #docdeep-find button:hover {
+  border-color: var(--dd-line-strong);
+  background: var(--dd-hover);
+  color: var(--dd-text);
+}
+html[data-docdeep="on"] #docdeep-find button:focus-visible {
+  outline: 2px solid var(--dd-line-strong);
+  outline-offset: 2px;
+}
+html[data-docdeep="on"] .doc-find-count {
+  min-width: 46px;
+  text-align: center;
+  font-size: 11.5px;
+  color: var(--dd-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+html[data-docdeep="on"] #docdeep-find .doc-find-count.is-empty { color: var(--dd-muted); }
+html[data-docdeep="on"] [data-doc-search-hit].doc-search-hit {
+  outline: 2px solid var(--dd-brand-line);
+  outline-offset: 3px;
+  border-radius: var(--dd-radius-sm);
+}
+html[data-docdeep="on"] [data-doc-search-hit].doc-search-active {
+  outline-color: var(--dd-brand);
+  background: var(--dd-brand-weak);
+}
+
+/* ---------- 右侧大纲 ---------- */
+html[data-docdeep="on"] #docdeep-outline {
+  position: fixed;
+  top: 76px;
+  right: 16px;
+  width: 232px;
+  max-height: 66vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--dd-surface);
+  border: 1px solid var(--dd-line);
+  border-radius: var(--dd-radius-lg);
+  box-shadow: var(--dd-shadow);
+  padding: 0;
+  z-index: var(--dd-z);
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--dd-text-2);
+  font-family: var(--dd-font);
+  overflow: hidden;
+}
+html[data-docdeep="on"] #docdeep-outline h4 {
+  margin: 0;
+  padding: 11px 12px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--dd-text);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid var(--dd-line);
+  background: var(--dd-surface-2);
+}
+html[data-docdeep="on"] #docdeep-outline h4 > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+html[data-docdeep="on"] #docdeep-outline h4 button {
+  flex: none;
+  border: 1px solid var(--dd-line);
+  background: var(--dd-surface);
+  border-radius: var(--dd-radius-sm);
+  font-size: 11px;
+  color: var(--dd-text-2);
+  cursor: pointer;
+  padding: 3px 9px;
+  font-family: var(--dd-font);
+  transition: background-color var(--dd-dur-fast) var(--dd-ease), border-color var(--dd-dur-fast) var(--dd-ease), color var(--dd-dur-fast) var(--dd-ease);
+}
+html[data-docdeep="on"] #docdeep-outline h4 button:hover {
+  border-color: var(--dd-line-strong);
+  background: var(--dd-hover);
+  color: var(--dd-text);
+}
+html[data-docdeep="on"] #docdeep-outline h4 button:focus-visible {
+  outline: 2px solid var(--dd-line-strong);
+  outline-offset: 2px;
+}
+/* 过滤框 + 补全按钮：工具区 */
+html[data-docdeep="on"] #docdeep-outline .doc-ol-filter {
+  display: block;
+  width: calc(100% - 24px);
+  margin: 10px 12px 0;
+  box-sizing: border-box;
+  border: 1px solid var(--dd-line);
+  border-radius: var(--dd-radius-sm);
+  padding: 6px 10px;
+  font-size: 12px;
+  line-height: 1.6;
+  font-family: var(--dd-font);
+  color: var(--dd-text);
+  background: var(--dd-surface-2);
+  outline: none;
+  transition: border-color var(--dd-dur-base) var(--dd-ease), box-shadow var(--dd-dur-base) var(--dd-ease);
+}
+html[data-docdeep="on"] #docdeep-outline .doc-ol-filter::placeholder { color: var(--dd-muted); }
+html[data-docdeep="on"] #docdeep-outline .doc-ol-filter:hover { border-color: var(--dd-line-strong); }
+/* 聚焦时长出一圈 3px 的强调色柔光环（标志性细节） */
+html[data-docdeep="on"] #docdeep-outline .doc-ol-filter:focus {
+  border-color: var(--dd-line-strong);
+  box-shadow: 0 0 0 3px var(--dd-accent-soft);
+}
+html[data-docdeep="on"] #docdeep-outline .doc-ol-complete {
+  display: block;
+  width: calc(100% - 24px);
+  margin: 8px 12px 0;
+  box-sizing: border-box;
+  border: 1px solid var(--dd-line);
+  border-radius: var(--dd-radius-sm);
+  padding: 6px 10px;
+  font-size: 12px;
+  line-height: 1.6;
+  font-family: var(--dd-font);
+  color: var(--dd-text-2);
+  background: var(--dd-surface-2);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color var(--dd-dur-fast) var(--dd-ease), color var(--dd-dur-fast) var(--dd-ease), background-color var(--dd-dur-fast) var(--dd-ease);
+}
+html[data-docdeep="on"] #docdeep-outline .doc-ol-complete:hover:not(:disabled) {
+  border-color: var(--dd-line-strong);
+  background: var(--dd-hover);
+  color: var(--dd-text);
+}
+html[data-docdeep="on"] #docdeep-outline .doc-ol-complete:disabled {
+  color: var(--dd-muted);
+  background: var(--dd-surface-sunken);
+  border-color: var(--dd-line);
+  cursor: default;
+}
+html[data-docdeep="on"] #docdeep-outline .doc-ol-complete:focus-visible {
+  outline: 2px solid var(--dd-line-strong);
+  outline-offset: 2px;
+}
+/* 勾选栏 */
+html[data-docdeep="on"] #docdeep-outline .doc-ol-selbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 8px 12px 0;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--dd-line);
+}
+html[data-docdeep="on"] #docdeep-outline .doc-ol-selbtn {
+  flex: 1 1 auto;
+  border: 1px solid var(--dd-line);
+  background: var(--dd-surface);
+  border-radius: var(--dd-radius-sm);
+  font-size: 11.5px;
+  color: var(--dd-text-2);
+  cursor: pointer;
+  padding: 4px 8px;
+  white-space: nowrap;
+  font-family: var(--dd-font);
+  transition: border-color var(--dd-dur-fast) var(--dd-ease), color var(--dd-dur-fast) var(--dd-ease), background-color var(--dd-dur-fast) var(--dd-ease);
+}
+html[data-docdeep="on"] #docdeep-outline .doc-ol-selbtn:hover:not(:disabled) {
+  border-color: var(--dd-line-strong);
+  background: var(--dd-hover);
+  color: var(--dd-text);
+}
+html[data-docdeep="on"] #docdeep-outline .doc-ol-selbtn:disabled {
+  color: var(--dd-muted);
+  background: var(--dd-surface-sunken);
+  cursor: not-allowed;
+}
+html[data-docdeep="on"] #docdeep-outline .doc-ol-selbtn:focus-visible {
+  outline: 2px solid var(--dd-line-strong);
+  outline-offset: 2px;
+}
+html[data-docdeep="on"] #docdeep-outline .doc-ol-selbtn.doc-ol-sel-only {
+  background: var(--dd-hover-tint-strong);
+  border-color: var(--dd-line-strong);
+  color: var(--dd-text);
+  font-weight: 600;
+}
+/* 列表 */
+html[data-docdeep="on"] #docdeep-outline .doc-ol-list {
+  flex: 1 1 auto;
+  overflow: auto;
+  padding: 8px 6px 10px;
+  scrollbar-width: thin;
+}
+html[data-docdeep="on"] #docdeep-outline .doc-ol-list::-webkit-scrollbar { width: 8px; }
+html[data-docdeep="on"] #docdeep-outline .doc-ol-list::-webkit-scrollbar-thumb {
+  background: var(--dd-scrollbar-thumb);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+html[data-docdeep="on"] .doc-ol-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  padding: 5px 8px;
+  border-radius: var(--dd-radius-sm);
+  font-size: 12px;
+  line-height: 1.55;
+  color: inherit;
+  font-family: var(--dd-font);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background-color var(--dd-dur-fast) var(--dd-ease), color var(--dd-dur-fast) var(--dd-ease);
+}
+html[data-docdeep="on"] .doc-ol-item:hover { background: var(--dd-hover); color: var(--dd-text); }
+html[data-docdeep="on"] .doc-ol-item:focus-visible {
+  outline: 2px solid var(--dd-line-strong);
+  outline-offset: -2px;
+}
+html[data-docdeep="on"] .doc-ol-item.active {
+  background: var(--dd-brand-weak) !important;
+  color: var(--dd-brand-strong) !important;
+  font-weight: 600;
+}
+html[data-docdeep="on"] .doc-ol-q { font-weight: 600; color: var(--dd-text); }
+html[data-docdeep="on"] .doc-ol-pending { opacity: .62; }
+html[data-docdeep="on"] .doc-ol-h2 { padding-left: 20px; }
+html[data-docdeep="on"] .doc-ol-h3 { padding-left: 30px; color: var(--dd-muted); }
+html[data-docdeep="on"] #docdeep-outline .doc-ol-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  border-radius: var(--dd-radius-sm);
+}
+html[data-docdeep="on"] #docdeep-outline .doc-ol-row:hover { background: var(--dd-hover); }
+html[data-docdeep="on"] #docdeep-outline .doc-ol-row .doc-ol-item { flex: 1; min-width: 0; }
+html[data-docdeep="on"] #docdeep-outline .doc-ol-row .doc-ol-item:hover { background: none; }
+html[data-docdeep="on"] #docdeep-outline .doc-ol-check {
+  flex: none;
+  accent-color: var(--dd-brand);
+  margin: 0 0 0 6px;
+  width: 13px;
+  height: 13px;
+  cursor: pointer;
+}
+html[data-docdeep="on"] #docdeep-outline .doc-ol-check:focus-visible {
+  outline: 2px solid var(--dd-line-strong);
+  outline-offset: 1px;
+}
+html[data-docdeep="on"] #docdeep-outline .doc-ol-empty {
+  padding: 14px 10px;
+  color: var(--dd-muted);
+  font-size: 12px;
+  text-align: center;
+  background: var(--dd-surface-sunken);
+  border-radius: var(--dd-radius-sm);
+  margin: 2px 6px;
+}
+html[data-docdeep="on"] #docdeep-outline.doc-ol-collapsed .doc-ol-list,
+html[data-docdeep="on"] #docdeep-outline.doc-ol-collapsed .doc-ol-selbar,
+html[data-docdeep="on"] #docdeep-outline.doc-ol-collapsed .doc-ol-complete,
+html[data-docdeep="on"] #docdeep-outline.doc-ol-collapsed .doc-ol-filter { display: none; }
+
+/* ---------- 隐藏官网自带目录(NATIVE-NAV-HIDE-001) ----------
+   开关开启时, content.js 经只读探测在原生目录容器(含纯包裹祖先)上打 data-docnavhide="1",
+   此处收起; 摘除标记即恢复, 不改动原生节点其它任何样式。 */
+html[data-docdeep="on"] [data-docnavhide="1"] { display: none !important; }
+
+
+/* ---------- 键盘导航帮助 ---------- */
+html[data-docdeep="on"] #docdeep-keys-help {
+  position: fixed;
+  right: 50%;
+  bottom: 24px;
+  transform: translateX(50%);
+  z-index: var(--dd-z);
+  width: 320px;
+  max-width: calc(100vw - 32px);
+  background: var(--dd-surface);
+  border: 1px solid var(--dd-line);
+  border-radius: var(--dd-radius-lg);
+  box-shadow: var(--dd-shadow);
+  padding: 14px 14px 12px;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--dd-text-2);
+  font-family: var(--dd-font);
+}
+html[data-docdeep="on"] #docdeep-keys-help .doc-keys-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--dd-text);
+  margin-bottom: 10px;
+}
+html[data-docdeep="on"] #docdeep-keys-help .doc-keys-list {
+  margin: 0 0 10px;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 6px;
+}
+html[data-docdeep="on"] #docdeep-keys-help .doc-keys-list li {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+html[data-docdeep="on"] #docdeep-keys-help kbd {
+  flex: none;
+  min-width: 26px;
+  text-align: center;
+  border: 1px solid var(--dd-line);
+  border-bottom-width: 2px;
+  border-radius: var(--dd-radius-sm);
+  background: var(--dd-surface-2);
+  padding: 1px 7px;
+  font-size: 11px;
+  font-family: var(--dd-font);
+  color: var(--dd-text-2);
+  line-height: 1.5;
+}
+html[data-docdeep="on"] #docdeep-keys-help .doc-keys-list span {
+  min-width: 0;
+  color: var(--dd-text-2);
+}
+html[data-docdeep="on"] #docdeep-keys-help .doc-keys-tip {
+  color: var(--dd-muted);
+  font-size: 11.5px;
+  line-height: 1.6;
+  margin-bottom: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--dd-line);
+}
+html[data-docdeep="on"] #docdeep-keys-help .doc-keys-close {
+  border: 1px solid var(--dd-line);
+  background: var(--dd-surface-2);
+  border-radius: var(--dd-radius-sm);
+  font-size: 12px;
+  font-family: var(--dd-font);
+  color: var(--dd-text-2);
+  padding: 5px 14px;
+  cursor: pointer;
+  display: block;
+  margin-left: auto;
+  transition: border-color var(--dd-dur-fast) var(--dd-ease), background-color var(--dd-dur-fast) var(--dd-ease), color var(--dd-dur-fast) var(--dd-ease);
+}
+html[data-docdeep="on"] #docdeep-keys-help .doc-keys-close:hover {
+  border-color: var(--dd-line-strong);
+  background: var(--dd-hover);
+  color: var(--dd-text);
+}
+html[data-docdeep="on"] #docdeep-keys-help .doc-keys-close:focus-visible {
+  outline: 2px solid var(--dd-line-strong);
+  outline-offset: 2px;
+}
+
+/* ---------- 提示条 / 导出进度（浅色主题白卡，墨色主题深卡，随 --dd-toast-* 切换）---------- */
+html[data-docdeep="on"] #docdeep-toast {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2147483001;
+  max-width: calc(100vw - 32px);
+  background: var(--dd-toast-bg);
+  color: var(--dd-toast-ink);
+  border: 1px solid var(--dd-toast-line);
+  font-size: 13px;
+  font-family: var(--dd-font);
+  border-radius: 999px;
+  padding: 9px 18px;
+  box-shadow: var(--dd-shadow-hover);
+  animation: dd-pop var(--dd-dur-base) var(--dd-ease);
+}
+html[data-docdeep="on"] #docdeep-export-progress {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2147483001;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: calc(100vw - 32px);
+  background: var(--dd-toast-bg);
+  color: var(--dd-toast-ink);
+  border: 1px solid var(--dd-toast-line);
+  border-radius: 999px;
+  padding: 8px 10px 8px 14px;
+  font-size: 12.5px;
+  font-family: var(--dd-font);
+  box-shadow: var(--dd-shadow-hover);
+  animation: dd-pop var(--dd-dur-base) var(--dd-ease);
+}
+html[data-docdeep="on"] #docdeep-export-progress::before {
+  content: "";
+  flex: none;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: 2px solid var(--dd-toast-line);
+  border-top-color: var(--dd-toast-spin);
+  animation: dd-spin .8s linear infinite;
+}
+html[data-docdeep="on"] #docdeep-export-progress .doc-export-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+html[data-docdeep="on"] #docdeep-export-progress button {
+  flex: none;
+  border: 1px solid var(--dd-toast-btn-line);
+  border-radius: 999px;
+  padding: 3px 12px;
+  background: transparent;
+  color: var(--dd-toast-ink);
+  font-size: 12px;
+  font-family: var(--dd-font);
+  cursor: pointer;
+  transition: background-color var(--dd-dur-fast) var(--dd-ease);
+}
+html[data-docdeep="on"] #docdeep-export-progress button:hover { background: var(--dd-toast-btn-hover); }
+html[data-docdeep="on"] #docdeep-export-progress button:focus-visible {
+  outline: 2px solid var(--dd-toast-focus);
+  outline-offset: 2px;
+}
+
+@keyframes dd-pop {
+  from { opacity: 0; transform: translateX(-50%) translateY(-4px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+@keyframes dd-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  html[data-docdeep="on"] #docdeep-toast,
+  html[data-docdeep="on"] #docdeep-export-progress { animation: none; }
+  html[data-docdeep="on"] #docdeep-export-progress::before { animation-duration: 2s; }
+}
+
+/* ---------- 窄屏适配 ---------- */
+@media (max-width: 1280px) {
+  html[data-docdeep="on"] #docdeep-outline {
+    display: none;
+    top: 64px;
+    right: 12px;
+    width: min(86vw, 320px);
+    max-height: 66vh;
+  }
+  html[data-docdeep="on"] #docdeep-outline.doc-ol-mobile-open { display: flex; }
+  html[data-docdeep="on"] #docdeep-dock { right: 12px; bottom: 12px; max-width: calc(100vw - 24px); }
+  html[data-docdeep="on"] #docdeep-tools { padding: 6px; }
+  html[data-docdeep="on"] #docdeep-tools button { font-size: 11.5px; padding: 6px 9px; }
+  html[data-docdeep="on"] #docdeep-keys-help { bottom: 16px; }
+}
+@media (max-width: 720px) {
+  html[data-docdeep="on"] #docdeep-dock { left: 12px; right: 12px; max-width: none; align-items: stretch; }
+  html[data-docdeep="on"] #docdeep-tools .doc-tools-row { justify-content: flex-start; }
+  html[data-docdeep="on"] #docdeep-tools .doc-tools-meta { justify-content: flex-start; }
+}
+
+/* ---------- 打印: 只留纸，侧栏/顶栏/工具条/输入框全部隐藏 ---------- */
+@media print {
+  html[data-docdeep="on"] body { background: #fff !important; }
+  html[data-docdeep="on"] [data-docshell="side"],
+  html[data-docdeep="on"] aside,
+  html[data-docdeep="on"] header,
+  html[data-docdeep="on"] #docdeep-outline,
+  html[data-docdeep="on"] #docdeep-dock,
+  html[data-docdeep="on"] #docdeep-tools,
+  html[data-docdeep="on"] #docdeep-count,
+  html[data-docdeep="on"] #docdeep-ver,
+  html[data-docdeep="on"] #docdeep-toast,
+  html[data-docdeep="on"] #docdeep-find,
+  html[data-docdeep="on"] #docdeep-export-progress,
+  html[data-docdeep="on"] #docdeep-keys-help,
+  html[data-docdeep="on"] body form:has(textarea) { display: none !important; }
+  html[data-docdeep="on"] .ds-message:has(.ds-assistant-message-main-content) {
+    box-shadow: none !important; border-color: #ddd !important;
+  }
+  html[data-docdeep="on"] .ds-message,
+  html[data-docdeep="on"] [data-docturn] { max-width: 100% !important; padding-left: 0 !important; padding-right: 0 !important; }
+}

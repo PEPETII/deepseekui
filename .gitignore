@@ -1,0 +1,7 @@
+.commandcode/
+.workbuddy/
+open-log.txt
+
+# Local OS metadata
+Thumbs.db
+.DS_Store

@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-page-node-id="EzOGTLh9sNrWsPXfBDUs4B">
+<head data-page-node-id="pAg5V44r8ig4YOdlSy5ZpG">
+<meta charset="utf-8" data-page-node-id="6gPQ0ivrDxdKYjCdZieYHY" />
+<title>文档化阅读</title>
+<style>
+  :root {
+    /* ---- 温润纸感 · popup 令牌（浅色）----
+       三级纸面：应用底 #F8F7F4 → 侧栏级 #F1EFE8（header/tabs/foot）→ 卡片纯白 #FFFFFF */
+    --bg: #F8F7F4;
+    --sidebar: #F1EFE8;
+    --surface: #FFFFFF;
+    --surface-2: #F1EFE8;
+    --line: #E2DBD2;
+    --line-strong: #BBAEA0;
+    --text: #2D2A26;
+    --text-2: #574F45;
+    --muted: #797368;
+    --brand: #C06B52;
+    --brand-strong: #AB5E48;
+    --brand-weak: #F7EEE9;
+    --brand-line: #E4C7BC;
+    --accent-soft: rgba(192, 107, 82, .12);
+    --hover-tint: rgba(45, 42, 38, .04);
+    --hover-tint-strong: rgba(45, 42, 38, .06);
+    --ok: #4F7A57;
+    --bad: #C92A2A;
+    --btn-primary: #2D2A26;
+    --btn-primary-hover: #45413C;
+    --btn-primary-text: #FFFFFF;
+    --switch-off: #D9D2C7;
+    --switch-off-hover: #CDC5B8;
+    --scrollbar-thumb: rgba(45, 42, 38, .15);
+    --scrollbar-thumb-hover: rgba(45, 42, 38, .25);
+    --radius-sm: 6px;
+    --radius: 10px;
+    --radius-lg: 16px;
+    --shadow: 0 1px 2px rgba(45, 42, 38, .05), 0 4px 12px rgba(45, 42, 38, .04);
+    --font: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB",
+      "Microsoft YaHei", "Noto Sans SC", sans-serif;
+    --font-serif: "Newsreader", "Songti SC", "Noto Serif SC",
+      "Source Han Serif SC", "STSong", "SimSun", serif;
+    --ease: cubic-bezier(.2, 0, 0, 1);
+    --dur-fast: .15s;
+    --dur-base: .2s;
+    --dur-slow: .3s;
+  }
+
+  /* ---- 深色分支：跟随页面「墨色」主题 ----
+     由 popup.js 在 <html> 上写 data-theme="dark"（paint() 内同步）。 */
+  :root[data-theme="dark"] {
+    --bg: #15161A;
+    --sidebar: #1B1D22;
+    --surface: #23262C;
+    --surface-2: #2C2F36;
+    --line: #2F333A;
+    --line-strong: #4A505A;
+    --text: #E6E4DF;
+    --text-2: #B4AFA6;
+    --muted: #9A958B;
+    --brand: #E08A6F;
+    --brand-strong: #EAA088;
+    --brand-weak: #3A2B26;
+    --brand-line: #5C4038;
+    --accent-soft: rgba(224, 138, 111, .16);
+    --hover-tint: rgba(255, 255, 255, .05);
+    --hover-tint-strong: rgba(255, 255, 255, .08);
+    --ok: #7FA98A;
+    --bad: #F2A8A8;
+    --btn-primary: #E6E4DF;
+    --btn-primary-hover: #FFFFFF;
+    --btn-primary-text: #15161A;
+    --switch-off: #3A3F48;
+    --switch-off-hover: #454B55;
+    --scrollbar-thumb: rgba(255, 255, 255, .14);
+    --scrollbar-thumb-hover: rgba(255, 255, 255, .24);
+    --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 4px 14px rgba(0, 0, 0, .25), 0 12px 32px rgba(0, 0, 0, .45);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    width: 320px;
+    height: 560px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--bg);
+    color: var(--text);
+    font: 13px/1.6 var(--font);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ---------- 顶部品牌栏 ---------- */
+  .app { flex: none; padding: 13px 14px 11px; background: var(--sidebar); border-bottom: 1px solid var(--line); }
+  .app-brand { display: flex; align-items: center; gap: 9px; }
+  .app-logo {
+    flex: none; width: 28px; height: 28px; border-radius: var(--radius-sm);
+    background: var(--btn-primary);
+    color: var(--btn-primary-text); font-size: 14px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 2px 6px rgba(45, 42, 38, .10);
+  }
+  .app-name { margin: 0; font-family: var(--font-serif); font-size: 15px; font-weight: 600; letter-spacing: .01em; }
+  .app-title { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+  .app-ver {
+    font-size: 10px; color: var(--muted); background: var(--surface);
+    border: 1px dashed var(--line-strong); border-radius: 999px; padding: 0 6px; line-height: 16px;
+  }
+  .app-sub { margin: 6px 0 0; font-size: 11.5px; color: var(--muted); line-height: 1.5; }
+
+  /* ---------- 分区标签 ---------- */
+  .tabs { flex: none; display: flex; gap: 2px; padding: 0 8px; background: var(--sidebar); border-bottom: 1px solid var(--line); }
+  .tab {
+    flex: 1 1 0; min-width: 0; height: 36px; padding: 0 2px;
+    border: 0; border-bottom: 2px solid transparent; background: transparent;
+    font: 12px/1 var(--font); color: var(--text-2); cursor: pointer;
+    transition: color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease);
+  }
+  .tab:hover { color: var(--text); }
+  .tab.is-active { color: var(--brand); font-weight: 600; border-bottom-color: var(--brand); }
+  .tab:focus-visible { outline: 2px solid var(--line-strong); outline-offset: -2px; }
+
+  /* ---------- 内容区 ---------- */
+  .panes { flex: 1 1 auto; overflow-y: auto; padding: 12px; scrollbar-width: thin; }
+  .panes::-webkit-scrollbar { width: 8px; }
+  .panes::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 999px; border: 2px solid transparent; background-clip: content-box; }
+  .panes::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); border-radius: 999px; border: 2px solid transparent; background-clip: content-box; }
+  .pane { display: none; }
+  .pane.is-active { display: block; }
+
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); margin-bottom: 10px; overflow: hidden; box-shadow: var(--shadow); }
+  .card-hd {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 9px 12px; border-bottom: 1px solid var(--line); min-height: 38px;
+  }
+  .card-title { font-size: 12px; font-weight: 600; color: var(--text); }
+  .card-note { font-size: 11px; color: var(--muted); }
+  .card-bd { padding: 11px 12px; display: grid; gap: 10px; }
+  .pane-note { margin: 0 0 10px; font-size: 11px; line-height: 1.6; color: var(--muted); }
+
+  /* ---------- 行 / 表单 ---------- */
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 30px; }
+  .row-txt { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+  .row-txt label { font-size: 12.5px; color: var(--text); line-height: 1.4; }
+  .row-txt b { font-weight: 600; }
+  .row-txt small { font-size: 10.5px; color: var(--muted); line-height: 1.4; }
+  .field { display: flex; align-items: center; gap: 8px; }
+  .field > label { flex: none; width: 40px; font-size: 12px; color: var(--muted); }
+  .field .input { flex: 1 1 auto; min-width: 0; }
+  .field--block { display: grid; gap: 6px; }
+  .field--block > label { width: auto; font-size: 12px; color: var(--text); font-weight: 600; }
+
+  .input {
+    height: 30px; width: 100%;
+    border: 1px solid var(--line-strong); border-radius: var(--radius);
+    padding: 0 9px; background: var(--surface); color: var(--text);
+    font: 12px/1 var(--font); outline: none;
+    transition: border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
+  }
+  .input::placeholder { color: var(--muted); }
+  .input:hover:not(:disabled) { border-color: var(--line-strong); }
+  .input:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .input:disabled { background: var(--surface-2); color: var(--muted); cursor: not-allowed; }
+  select.input {
+    padding-right: 26px; appearance: none; -webkit-appearance: none; cursor: pointer;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M3 4.5 6 7.5 9 4.5' fill='none' stroke='%238b93a1' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+    background-repeat: no-repeat; background-position: right 8px center;
+  }
+  select.input:disabled { cursor: not-allowed; }
+  .input-narrow { width: 96px; flex: none; }
+
+  /* ---------- 开关 ---------- */
+  .sw {
+    position: relative; flex: none; width: 40px; height: 22px; padding: 0;
+    border: 0; border-radius: 999px; background: var(--switch-off); cursor: pointer;
+    transition: background-color var(--dur-base) var(--ease);
+  }
+  .sw::after {
+    content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px;
+    border-radius: 50%; background: var(--surface); box-shadow: 0 1px 2px rgba(45, 42, 38, .18);
+    transition: left var(--dur-base) var(--ease);
+  }
+  .sw[aria-checked="true"] { background: var(--brand); }
+  .sw[aria-checked="true"]::after { left: 21px; }
+  .sw:hover { background: var(--switch-off-hover); }
+  .sw[aria-checked="true"]:hover { background: var(--brand-strong); }
+  .sw:focus-visible { outline: 2px solid var(--line-strong); outline-offset: 2px; }
+  .sw:disabled { opacity: .5; cursor: not-allowed; }
+
+  /* ---------- 按钮 ---------- */
+  .btns, .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .btn {
+    min-height: 30px; padding: 0 10px;
+    border: 1px solid var(--line-strong); border-radius: var(--radius);
+    background: var(--surface); color: var(--text-2);
+    font: 12px/1 var(--font); cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+    transition: background-color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+  }
+  .btn:hover { border-color: var(--line-strong); background: var(--hover-tint); color: var(--text); }
+  .btn:active { transform: translateY(.5px); }
+  .btn:focus-visible { outline: 2px solid var(--line-strong); outline-offset: 2px; }
+  .btn-primary { background: var(--btn-primary); border-color: var(--btn-primary); color: var(--btn-primary-text); }
+  .btn-primary:hover { background: var(--btn-primary-hover); border-color: var(--btn-primary-hover); color: var(--btn-primary-text); }
+  .btn-block { width: 100%; }
+  .btn-wide { grid-column: 1 / -1; }
+  .btn-mini { min-height: 26px; padding: 0 10px; font-size: 11.5px; }
+
+  /* ---------- 列表 ---------- */
+  .list { display: grid; gap: 6px; max-height: 250px; overflow: auto; padding-right: 2px; scrollbar-width: thin; }
+  .list::-webkit-scrollbar { width: 8px; }
+  .list::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 999px; border: 2px solid transparent; background-clip: content-box; }
+  .list-hd { display: flex; align-items: center; justify-content: space-between; margin: 0 2px 7px; }
+  .bookmark-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 10px; background: var(--surface);
+    border: 1px solid var(--line); border-radius: var(--radius);
+    transition: border-color var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease);
+  }
+  .bookmark-item:hover { border-color: var(--line-strong); background: var(--hover-tint); }
+  .bookmark-item > div:first-child { min-width: 0; flex: 1 1 auto; }
+  .bookmark-title { min-width: 0; font-size: 12.5px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bookmark-meta { margin-top: 2px; font-size: 10.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bookmark-actions { flex: none; display: flex; gap: 4px; }
+  .bookmark-actions button {
+    height: 24px; padding: 0 8px;
+    border: 1px solid var(--line-strong); background: var(--surface); border-radius: var(--radius-sm);
+    font: 11.5px/1 var(--font); color: var(--text-2); cursor: pointer;
+    transition: border-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease);
+  }
+  .bookmark-actions button:hover { border-color: var(--line-strong); background: var(--hover-tint); color: var(--text); }
+  .bookmark-actions button:focus-visible { outline: 2px solid var(--line-strong); outline-offset: 1px; }
+  .bookmark-empty {
+    padding: 16px 12px; text-align: center;
+    font-size: 11.5px; line-height: 1.6; color: var(--muted);
+    background: var(--surface); border: 1px dashed var(--line-strong); border-radius: var(--radius);
+  }
+
+  /* ---------- 诊断 ---------- */
+  .diag {
+    font-size: 11.5px; line-height: 1.75; color: var(--text-2);
+    white-space: pre-wrap; word-break: break-all;
+    background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 9px 10px; max-height: 240px; overflow: auto; scrollbar-width: thin;
+  }
+  .diag::-webkit-scrollbar { width: 8px; }
+  .diag::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 999px; border: 2px solid transparent; background-clip: content-box; }
+  .diag.is-loading { display: flex; align-items: center; gap: 8px; }
+  .diag.is-loading::before {
+    content: ""; flex: none; width: 12px; height: 12px; border-radius: 50%;
+    border: 2px solid var(--line); border-top-color: var(--text-2);
+    animation: spin .8s linear infinite;
+  }
+  #diag .bad, .diag .bad { color: var(--bad); font-weight: 700; }
+  #diag .good, .diag .good { color: var(--ok); font-weight: 700; }
+
+  /* ---------- 底部状态条 ---------- */
+  .foot { flex: none; border-top: 1px solid var(--line); background: var(--sidebar); padding: 8px 12px 10px; }
+  .status {
+    display: flex; align-items: center; gap: 7px;
+    min-height: 28px; padding: 5px 10px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    font-size: 11.5px; line-height: 1.5; color: var(--text-2);
+  }
+  .status::before { content: ""; flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--brand); }
+  .status.flash { animation: flash .6s ease-out; }
+  .privacy { margin: 7px 0 0; font-size: 10.5px; line-height: 1.5; color: var(--muted); }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes flash {
+    0% { border-color: var(--line-strong); background: var(--hover-tint-strong); }
+    100% { border-color: var(--line); background: var(--surface); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .status.flash { animation: none; }
+    .diag.is-loading::before { animation-duration: 2s; }
+  }
+</style>
+</head>
+<body data-page-node-id="bLtzbA3Rjvj3Im2ZlYlUGC">
+  <header class="app" data-page-node-id="x1dRwojEnbsbNY21TBvXX1">
+    <div class="app-brand" data-page-node-id="O23TmDGGohfA2AOa4U3jXi">
+      <span class="app-logo" aria-hidden="true" data-page-node-id="NbS0kiitDiSV0GDSGFWAep">文</span>
+      <div class="app-title" data-page-node-id="5BZA9cqUFKrlShxbORDFeH">
+        <h1 class="app-name" data-page-node-id="JWxViIuj8brADVphFxOJ8u">文档化阅读</h1>
+        <span class="app-ver" data-page-node-id="tX80dQF4wZmQSUBYXlUeCQ">v0.3.14</span>
+      </div>
+    </div>
+    <p class="app-sub" data-page-node-id="rN4LB10LAkfC8eaSsBcAIf">把 DeepSeek 会话重排为文档：阅读、检索、导出、本地收藏。</p>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="功能分区" data-page-node-id="gsGYFjxrh6NgxoyEGLkzGP">
+    <button type="button" class="tab is-active" data-tab="read" role="tab" aria-selected="true" data-page-node-id="EdguWrXFLU7VCKrX43kmj2">阅读</button>
+    <button type="button" class="tab" data-tab="act" role="tab" aria-selected="false" data-page-node-id="CskorsRyx6YaoFPBB79n4Z">操作</button>
+    <button type="button" class="tab" data-tab="mark" role="tab" aria-selected="false" data-page-node-id="jvbAVDMSICfgq5LAuFYC3q">收藏</button>
+    <button type="button" class="tab" data-tab="diag" role="tab" aria-selected="false" data-page-node-id="dpTNFUFWdjZBKgGA37oZ4I">诊断</button>
+  </nav>
+
+  <main class="panes" data-page-node-id="Cx5lo8XGGh4E2w1H1B2mGk">
+    <!-- 阅读设置 -->
+    <section class="pane is-active" data-pane="read" role="tabpanel" aria-label="阅读设置" data-page-node-id="4l1qdpuRmMrqHzcvDnrIIl">
+      <div class="card" data-page-node-id="JZskKR2018XgBzGzRbEisU">
+        <div class="card-hd" data-page-node-id="UjqTveER8RUMBTOhvxDWg4"><span class="card-title" data-page-node-id="D147GMwGAGVecm4oy9pE2Y">阅读版式</span></div>
+        <div class="card-bd" data-page-node-id="MtnlRRs0oZmGWEj9PmycXc">
+          <div class="row" data-page-node-id="aa5HQf5EnlE8QwDaMrPzA0">
+            <div class="row-txt" data-page-node-id="pfONKg73Ce3EBr5leko6Nk">
+              <label id="l-sw" data-page-node-id="TT5sbnAc8sNYx874zjADRb"><b data-page-node-id="7Il3dYBRoNwGGWU3RoILaR">文档版式</b></label>
+              <small data-page-node-id="brlJcGftmAuNWQEGRyMpgP">关闭即恢复原站，无需刷新</small>
+            </div>
+            <button type="button" class="sw" id="sw" role="switch" aria-checked="true" aria-labelledby="l-sw" data-page-node-id="J8w9hLnBkdSgrDqSBbYxde"></button>
+          </div>
+          <div class="field" data-page-node-id="WGNuyPVh46ny4hwtydS7xF">
+            <label for="font" data-page-node-id="QDawBKAhIre8QoDyvP6Eqs">正文字号</label>
+            <select class="input" id="font" aria-label="正文字号" data-page-node-id="Hu8jt8G9HAjSnEEDWa4KNX">
+              <option value="15" data-page-node-id="1nXPDocmMaExj0aXJwHOCK">15 像素</option>
+              <option value="16" data-page-node-id="eYleZLw4aZAFt37tY41T06">16 像素</option>
+              <option value="17" data-page-node-id="ChnApcdMhYGGP31YQtEXEF">17 像素</option>
+              <option value="18" data-page-node-id="GbGDHAQhXT23mHQEV6vdAz">18 像素</option>
+            </select>
+          </div>
+          <div class="field" data-page-node-id="HvzcYyCVt9E0zJTApwnZ35">
+            <label for="theme" data-page-node-id="czd8HTwPwBtIAgtET5kdTX">纸张主题</label>
+            <select class="input" id="theme" aria-label="纸张主题" data-page-node-id="ZFlNgVE1ielHxieccbaRZ5">
+              <option value="mi" data-page-node-id="ZWEyWQ3Lxhn1YX4FXatGAb">米黄</option>
+              <option value="bai" data-page-node-id="hoQDSaX0HVFB5JSyn7YbLN">纯白</option>
+              <option value="mo" data-page-node-id="9kfPTAeen5Dqu8iDapKEiU">墨色</option>
+            </select>
+          </div>
+          <div class="field" data-page-node-id="4AcfHVWpnsQ1EjGfBSmYCh">
+            <label for="width" data-page-node-id="uucX2Pe8xQU4HvgEfBQjif">纸张宽度</label>
+            <select class="input" id="width" disabled aria-label="纸张宽度（暂缓）"
+              title="PAPER-WIDTH-001: 功能暂缓，冻结 880" data-page-node-id="XsbrVEFCYkqFhBZnQO32es">
+              <option value="880" data-page-node-id="vQiJkq3P7iTxEQqVvpjJ4i">标准 880（暂缓）</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" data-page-node-id="jMOuFmYcmRzPD2ggVKUK0e">
+        <div class="card-hd" data-page-node-id="1hcHQRn5uv3afPKLQyR1HF"><span class="card-title" data-page-node-id="nWRwNl4Fdas8lMsLHa4j1z">辅助功能</span></div>
+        <div class="card-bd" data-page-node-id="K43WcGsdjwckdqGb0Bvy8P">
+          <div class="row" data-page-node-id="O3lA0iSUgNaZ2ISEMBPebU">
+            <div class="row-txt" data-page-node-id="uLYdrACBKCeelQUwT3hPan">
+              <label id="l-ol" data-page-node-id="HlxASoAv9MIdGueqRGJU1S"><b data-page-node-id="d6zp9T5OLslQCqVaDiBKLA">右侧大纲</b></label>
+              <small data-page-node-id="GJrHIU1K0NAwIiFzab4IhU">按提问与小节列出本文结构</small>
+            </div>
+            <button type="button" class="sw" id="ol" role="switch" aria-checked="true" aria-labelledby="l-ol" data-page-node-id="OeX0WgMsGqR1ybMDth85JP"></button>
+          </div>
+          <div class="row" data-page-node-id="ciIKd9ZBTXLnHcb9U4bupR">
+            <div class="row-txt" data-page-node-id="Tm1rCyTH7EPFmBfFL8lf5t">
+              <label id="l-keys" data-page-node-id="la9eosreUdRcGSj9M4S1s9"><b data-page-node-id="MRMKgf9tIEyLLQVmIILKde">键盘导航</b></label>
+              <small data-page-node-id="d1N2WfVom3NDtrtcixNp4F">J / K 跳提问，? 查看全部快捷键</small>
+            </div>
+            <button type="button" class="sw" id="keys" role="switch" aria-checked="true" aria-labelledby="l-keys" data-page-node-id="1v61hZoiU4CzP4iaQmb0a6"></button>
+          </div>
+          <div class="row">
+            <div class="row-txt">
+              <label id="l-nav"><b>隐藏官网目录</b></label>
+              <small>收起 DeepSeek 自带右侧目录，以扩展大纲为准</small>
+            </div>
+            <button type="button" class="sw" id="nav" role="switch" aria-checked="false" aria-labelledby="l-nav"></button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 当前会话操作 -->
+    <section class="pane" data-pane="act" role="tabpanel" aria-label="会话操作" data-page-node-id="OeGS1RdnA2D1GNquQvxfG9">
+      <div class="card" data-page-node-id="dIfDTlgw8Hyt2CFunYG17L">
+        <div class="card-hd" data-page-node-id="BzJtZu13Ouf23ZDKpSwRGQ"><span class="card-title" data-page-node-id="MAMUjKlm8Nc2tZthd4090D">当前会话</span></div>
+        <div class="card-bd" data-page-node-id="NmgExsRxpnSA0NvWVpxoAx">
+          <div class="grid" data-page-node-id="oK9XNuxDxuDfuYOtBbEbDr">
+            <button type="button" class="btn" id="copy" data-page-node-id="ud6gUVXr79z3ELRXmXwH1K">复制全文</button>
+            <button type="button" class="btn" id="top" data-page-node-id="BtTPArlTnwrzrwzV1OB1Q5">回到顶部</button>
+            <button type="button" class="btn" id="find" data-page-node-id="F8QmEbXWM81E5CZp3sXGJA">查找当前会话</button>
+            <button type="button" class="btn" id="print" data-page-node-id="7CyNkSZrv88wTkclxzaEi5">打印 / PDF</button>
+          </div>
+        </div>
+      </div>
+      <div class="card" data-page-node-id="ukXFJ1Uf6oVhy9oWB9dYTW">
+        <div class="card-hd" data-page-node-id="7bNEuDYbvpRa8cDK8WgkNe"><span class="card-title" data-page-node-id="wWxmzCopA6hsqP6evTCyyg">导出会话</span><span class="card-note" data-page-node-id="MiPXeofdTre2VDzYGOTYkC">长会话显示进度</span></div>
+        <div class="card-bd" data-page-node-id="i5E8y2RZCIfySozbC01jgw">
+          <div class="grid" data-page-node-id="XDG5SmyVlFdAwTvHF2Lpwn">
+            <button type="button" class="btn btn-primary" id="export-md" data-page-node-id="Uk7VIaB0x4JjiofwaG6nPU">导出 Markdown</button>
+            <button type="button" class="btn" id="export-json" data-page-node-id="VZp73IctMCgCFqHPJJW7iM">导出 JSON</button>
+            <button type="button" class="btn btn-wide" id="export-html" data-page-node-id="VgkAcUUr3dRXne9wBxNfoX">导出 HTML</button>
+          </div>
+        </div>
+      </div>
+      <p class="pane-note" data-page-node-id="CYsFk0IKQY40nFttXSZolo">导出前会自动滚动采集全部内容，过程中可随时取消。</p>
+    </section>
+
+    <!-- 本地收藏 -->
+    <section class="pane" data-pane="mark" role="tabpanel" aria-label="本地收藏" data-page-node-id="v0aKOrqFDSID6tQ7VRQ6q0">
+      <div class="card" data-page-node-id="TnjFuCHq1WwEeqZIDYiwID">
+        <div class="card-bd" data-page-node-id="0ZNSiWL1G8npfHlOzb0XEu">
+          <button type="button" class="btn btn-primary btn-block" id="bookmark" data-page-node-id="fv3rqAy2CIjhvnWVpuFKAV">收藏当前会话</button>
+          <div class="field" data-page-node-id="afZeKzj9whuiK4o6AUMnfk">
+            <label for="bookmark-tag" data-page-node-id="sTTwYgzKuZ3wQom41hOQkP">标签</label>
+            <input class="input" id="bookmark-tag" type="text" placeholder="例如：研究 / 待办" maxlength="24" aria-label="收藏标签" data-page-node-id="LLZYpyDVAFzBWOoMdT42H3" />
+          </div>
+          <div class="field" data-page-node-id="eu4WjRyJ5C0rlCAhfnEpFm">
+            <label for="bookmark-search" data-page-node-id="p6LlB5VqjPggdQlLhGBg6J">搜索</label>
+            <input class="input" id="bookmark-search" type="search" placeholder="搜标题 / 标签 / 链接" aria-label="搜索收藏" data-page-node-id="X0XCqAb6IVyGlodf1RFveQ" />
+          </div>
+          <div class="field" data-page-node-id="k8CqiAeJG08LWFuMMb7Hxy">
+            <label for="bookmark-tag-filter" data-page-node-id="GqThA3r2JG235WAXNGDua6">筛选</label>
+            <select class="input" id="bookmark-tag-filter" aria-label="按标签筛选" data-page-node-id="Gz2sTBIZHAqB7j9kGg3Ulb">
+              <option value="" data-page-node-id="nbdLuYdDDrBp0ZvyxxEoQq">全部</option>
+              <option value="__none__" data-page-node-id="C0bkqgn283Ec4yU0KCsc5t">未分类</option>
+            </select>
+          </div>
+          <div class="grid" data-page-node-id="rgb7MEnHkYNsIs8SfjEScI">
+            <button type="button" class="btn" id="bookmark-export" data-page-node-id="9g0dCWhuCpVFvv8RZDFmrM">导出收藏</button>
+            <label class="btn" for="bookmark-import" style="margin:0" data-page-node-id="sPwdWVpNSkSBvzVHgJTvJQ">导入收藏</label>
+          </div>
+          <input type="file" id="bookmark-import" accept="application/json" aria-label="导入收藏文件" style="display:none" data-page-node-id="P8rTb25rf8JZhKCcHAhbCh" />
+        </div>
+      </div>
+      <div class="list-hd" data-page-node-id="kcSxaQWlHvGlJr9QqXyCNx"><span class="card-title" data-page-node-id="YmFUFgkgwDbqfDQOCOBQ23">收藏列表</span><span class="card-note" data-page-node-id="tF9sgUfjwIdARVHYplzFN1">最多 100 条</span></div>
+      <div class="list" id="bookmark-list" data-page-node-id="ovCzKe7agotFpOiU3ASdSA"></div>
+    </section>
+
+    <!-- 运行状态 -->
+    <section class="pane" data-pane="diag" role="tabpanel" aria-label="运行状态" data-page-node-id="7vuaBY3ArJ6lYbwm9mOcO4">
+      <div class="card" data-page-node-id="xl2g3E8Iq6bocW3w26105h">
+        <div class="card-hd" data-page-node-id="L516X04fFODrDtoWukyJwU">
+          <span class="card-title" data-page-node-id="fpU0EPogYKoWzvVkYIjMW1">运行状态</span>
+          <button type="button" class="btn btn-mini" id="check" data-page-node-id="Y1H3ulh492wItZ6Q6oP6Kb">检测状态</button>
+        </div>
+        <div class="card-bd" data-page-node-id="dzpO90O5WIsHMiLizuDZJe">
+          <div id="diag" class="diag" data-page-node-id="LUpG88tuWtCdhqEgPtgoaF">点「检测状态」，扩展自动采集页面数据，无需手动找。</div>
+        </div>
+      </div>
+      <button type="button" class="btn btn-block" id="report" data-page-node-id="GhpzTF3XmNPoC9rYMPMF3v">复制诊断报告</button>
+      <p class="pane-note" data-page-node-id="CF9JCs8WuLMviKj5Bsewj7">报告只包含设置、页面快照与浏览器标识，不含对话正文与账号信息。</p>
+    </section>
+  </main>
+
+  <footer class="foot" data-page-node-id="bhXWY6ELwkiAcKxbD3gNAn">
+    <div class="status" id="tip" role="status" aria-live="polite" data-page-node-id="9bsXkTHLfvkS0bmWej0cbr">已启用。关闭后页面即恢复原站，无需刷新。</div>
+    <p class="privacy" data-page-node-id="013065NPK9Bzq37MPdoLCO">设置和收藏保存在本地，只保存收藏标题与链接，不读取账号与 Token。</p>
+  </footer>
+<script src="popup.js"></script>
+</body>
+</html>
