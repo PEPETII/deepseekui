@@ -1,14 +1,13 @@
-// popup v0.3.16: 阅读设置 + 搜索/导出 + 本地会话收藏
+// popup v0.3.20: 阅读设置 + 搜索/导出 + 本地会话收藏
 const $ = (id) => document.getElementById(id);
-const POPUP_VER = '0.3.16';
-const DEFAULTS = { docdeep_enabled: true, docdeep_width: 880, docdeep_font: 17, docdeep_theme: 'mi', docdeep_outline: true, docdeep_keys: true, docdeep_hide_native: false };
+// POPUP_VER 与 manifest.json / content.js VERSION 三处同步(见 AGENTS.md 版本号规则)
+const POPUP_VER = '0.3.20';
+const DEFAULTS = { docdeep_enabled: true, docdeep_width: 880, docdeep_font: 17, docdeep_theme: 'mi', docdeep_outline: true, docdeep_keys: true, docdeep_hide_native: false, docdeep_format: true };
 const BOOKMARKS_KEY = 'docdeep_bookmarks';
 const SCHEMA_VER = 2;
 const SCHEMA_KEY = 'docdeep_schema_ver';
 const BOOKMARKS_MAX = 100;
 const TAG_MAX = 24;
-let lastPing = null;
-let lastHeartbeat = null;
 let bookmarks = [];
 
 function isDeepSeekUrl(url) {
@@ -128,7 +127,7 @@ function exportFileDate(d) {
   return `${t.getFullYear()}${p(t.getMonth() + 1)}${p(t.getDate())}`;
 }
 
-// 纯构造：settings 取 6 键，bookmarks 经 normalize；供单测与导出共用
+// 纯构造：settings 取 7 键，bookmarks 经 normalize；供单测与导出共用
 function buildBookmarksExport(settings, list, now) {
   const s = settings || {};
   const safeSettings = {
@@ -138,6 +137,7 @@ function buildBookmarksExport(settings, list, now) {
     docdeep_theme: s.docdeep_theme ?? DEFAULTS.docdeep_theme,
     docdeep_outline: s.docdeep_outline ?? DEFAULTS.docdeep_outline,
     docdeep_keys: s.docdeep_keys ?? DEFAULTS.docdeep_keys,
+    docdeep_format: s.docdeep_format ?? DEFAULTS.docdeep_format,
   };
   const date = exportFileDate(now instanceof Date ? now : new Date());
   const ts = now instanceof Date && !Number.isNaN(now.getTime()) ? now.toISOString() : new Date().toISOString();
@@ -445,6 +445,7 @@ function paint(s) {
   $('ol').setAttribute('aria-checked', String(s.docdeep_outline !== false));
   $('keys').setAttribute('aria-checked', String(s.docdeep_keys !== false));
   $('nav').setAttribute('aria-checked', String(s.docdeep_hide_native === true));
+  $('format').setAttribute('aria-checked', String(s.docdeep_format !== false));
   $('width').value = '880'; // PAPER-WIDTH-001: 冻结显示
   $('font').value = String(s.docdeep_font);
   $('theme').value = s.docdeep_theme;
@@ -461,7 +462,8 @@ async function load() {
     try { paint({ ...DEFAULTS }); } catch {}
   }
   loadBookmarks();
-  try { await chrome.storage.local.remove(['docdeep_history_v1', 'docdeep_backup', 'docdeep_backup_mins', 'docdeep_backup_keep']); } catch {}
+  // 历史遗留键清理：已下线功能留下的存储键（备份系列 + 页面心跳快照），老版本存量不留残骸
+  try { await chrome.storage.local.remove(['docdeep_history_v1', 'docdeep_backup', 'docdeep_backup_mins', 'docdeep_backup_keep', 'docdeep_heartbeat']); } catch {}
 }
 
 // ---- v0.3.4-ui: 分区切换 / 状态提示（纯显示层，不触碰业务数据）----
@@ -531,6 +533,12 @@ $('nav').addEventListener('click', async () => {
   await notify({ type: 'DOCDEEP_SETTINGS', settings: { docdeep_hide_native: on } });
   load();
 });
+$('format').addEventListener('click', async () => {
+  const on = $('format').getAttribute('aria-checked') !== 'true';
+  try { await chrome.storage.local.set({ docdeep_format: on }); } catch { $('tip').textContent = '本地存储已满或写入失败，仅保留本次显示。'; return; }
+  await notify({ type: 'DOCDEEP_SETTINGS', settings: { docdeep_format: on } });
+  load();
+});
 [['width', 'docdeep_width', Number], ['font', 'docdeep_font', Number], ['theme', 'docdeep_theme', String]].forEach(([id, key, fn]) => {
   $(id).addEventListener('change', async () => {
     const v = fn($(id).value);
@@ -577,80 +585,6 @@ if ($('bookmark-import')) $('bookmark-import').addEventListener('change', async 
   try { e.target.value = ''; } catch {}
 });
 
-// ---- 运行状态: ping 页面脚本 + 读心跳, 自动判断 ----
-$('check').addEventListener('click', async () => {
-  const d = $('diag');
-  d.classList.remove('is-loading');
-  d.textContent = '采集中…';
-  d.classList.add('is-loading');
-  const t = await tab();
-  const stored = await chrome.storage.local.get({ ...DEFAULTS, docdeep_heartbeat: null });
-  lastHeartbeat = stored.docdeep_heartbeat || null;
-  lastPing = (await notify({ type: 'DOCDEEP_PING' })) || (await notify({ type: 'DOCDEEP_PING' }));
-  const lines = [];
-  if (!t) {
-    lines.push('× 当前标签页不是 DeepSeek 对话页, 状态仅供参考。');
-  }
-  if (!lastPing && !lastHeartbeat) {
-    d.classList.remove('is-loading');
-    d.innerHTML = '结果: <span class="bad">页面脚本无响应</span>\n'
-      + '最可能原因: 改完代码后没点 edge://extensions/ 里的 ⟳(重载), 页面跑的还是旧包。\n'
-      + '做法: 扩展卡片点 ⟳ → DeepSeek 标签页 Ctrl+F5 → 再点检测状态。';
-    return;
-  }
-  const snap = lastPing || lastHeartbeat;
-  const src = lastPing ? '实时' : '心跳(数秒前)';
-  lines.push(`数据源: ${src} · 脚本 v${snap.ver || '?'} / 面板 v${POPUP_VER}`);
-  if (snap.ver !== POPUP_VER) lines.push(`× 脚本版本与面板不一致 → 点扩展 ⟳ 重载后再硬刷新页面。`);
-  else lines.push('✓ 脚本与面板版本一致');
-  lines.push(`${snap.on === false ? '×' : '✓'} 文档开关: ${snap.on === false ? '关(设置自然不生效)' : '开'}`);
-  // PAPER-WIDTH-001: 纸宽已冻结为 880，不再判定用户存量
-  const expW = '880px';
-  const expF = String(stored.docdeep_font) + 'px';
-  const gotW = (snap.computed?.w || '').trim(), gotF = (snap.computed?.f || '').trim();
-  lines.push(`${gotW === expW ? '✓' : '×'} 纸宽: 冻结 880px / 实际 ${gotW || '空'}(功能暂缓)`);
-  lines.push(`${gotF === expF ? '✓' : '×'} 字号变量: 期望 ${expF} / 实际 ${gotF || '空'}`);
-  lines.push(`${(snap.theme || '') === stored.docdeep_theme ? '✓' : '×'} 主题属性: 期望 ${stored.docdeep_theme} / 实际 ${snap.theme || '空'}`);
-  lines.push(`轮次 ${snap.turns ?? '?'} · 提问 ${snap.questions ?? '?'} · 大纲 ${snap.outline ? '有' : '无'} · 工具条 ${snap.tools ? '有' : '无'}`);
-  if (snap.nativeOutline?.found) {
-    lines.push(`✓ 原生目录: 策略 ${snap.nativeOutline.strategy} · ${snap.nativeOutline.count}项 · 容器 ${snap.nativeOutline.containerSig || '未知'}${snap.nativeOutline.navHidden ? ' · 已隐藏' : ''}`);
-  } else {
-    lines.push('○ 原生目录: 未发现(可能改版/未渲染，可滚动会话后重试)');
-  }
-  if (snap.widthProbe) {
-    const wp = snap.widthProbe;
-    const ch = snap.chain;
-    if (ch) lines.push(`窗口:${ch.vp}px 侧栏:${ch.side}px 可用约:${ch.vp - ch.side}px`);
-    lines.push(`卡片 max-width:${wp.cardMax} 卡片宽:${wp.cardW}px 容器宽:${wp.parentW}px 内层max:${wp.innerMax}`);
-    lines.push('纸宽功能暂缓判定，详见 docs/known-issues.md');
-  }
-  if (!lastPing && lastHeartbeat) lines.push('注: 用的是心跳快照, 点“复制诊断报告”发我即可定位。');
-  d.classList.remove('is-loading');
-  d.textContent = lines.join('\n');
-});
-
-$('report').addEventListener('click', async () => {
-  const stored = await chrome.storage.local.get({ ...DEFAULTS, docdeep_heartbeat: null });
-  const t = await tab();
-  const report = {
-    popupVer: POPUP_VER,
-    time: new Date().toISOString(),
-    ua: navigator.userAgent,
-    tabUrl: t?.url || '(非DeepSeek页或无权限)',
-    settings: { w: stored.docdeep_width, f: stored.docdeep_font, theme: stored.docdeep_theme, on: stored.docdeep_enabled, outline: stored.docdeep_outline, keys: stored.docdeep_keys ?? true, nav: stored.docdeep_hide_native === true },
-    ping: lastPing,
-    heartbeat: lastHeartbeat || stored.docdeep_heartbeat || null,
-  };
-  const text = 'DOCDEEP-DIAG ' + JSON.stringify(report);
-  try { await navigator.clipboard.writeText(text); }
-  catch {
-    const ta = document.createElement('textarea');
-    ta.value = text; document.body.appendChild(ta); ta.select();
-    try { document.execCommand('copy'); } catch {}
-    ta.remove();
-  }
-  $('tip').textContent = '诊断报告已复制,直接粘贴发我就好,不用再找别的。';
-});
 load();
 } else if (typeof document !== 'undefined') {
   // 非扩展环境（如 file:// 预览）仅保证不崩，不接线

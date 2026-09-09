@@ -23,8 +23,6 @@
     --accent-soft: rgba(192, 107, 82, .12);
     --hover-tint: rgba(45, 42, 38, .04);
     --hover-tint-strong: rgba(45, 42, 38, .06);
-    --ok: #4F7A57;
-    --bad: #C92A2A;
     --btn-primary: #2D2A26;
     --btn-primary-hover: #45413C;
     --btn-primary-text: #FFFFFF;
@@ -65,8 +63,6 @@
     --accent-soft: rgba(224, 138, 111, .16);
     --hover-tint: rgba(255, 255, 255, .05);
     --hover-tint-strong: rgba(255, 255, 255, .08);
-    --ok: #7FA98A;
-    --bad: #F2A8A8;
     --btn-primary: #E6E4DF;
     --btn-primary-hover: #FFFFFF;
     --btn-primary-text: #15161A;
@@ -205,7 +201,6 @@
   .btn-primary:hover { background: var(--btn-primary-hover); border-color: var(--btn-primary-hover); color: var(--btn-primary-text); }
   .btn-block { width: 100%; }
   .btn-wide { grid-column: 1 / -1; }
-  .btn-mini { min-height: 26px; padding: 0 10px; font-size: 11.5px; }
 
   /* ---------- 列表 ---------- */
   .list { display: grid; gap: 6px; max-height: 250px; overflow: auto; padding-right: 2px; scrollbar-width: thin; }
@@ -237,24 +232,6 @@
     background: var(--surface); border: 1px dashed var(--line-strong); border-radius: var(--radius);
   }
 
-  /* ---------- 诊断 ---------- */
-  .diag {
-    font-size: 11.5px; line-height: 1.75; color: var(--text-2);
-    white-space: pre-wrap; word-break: break-all;
-    background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--radius);
-    padding: 9px 10px; max-height: 240px; overflow: auto; scrollbar-width: thin;
-  }
-  .diag::-webkit-scrollbar { width: 8px; }
-  .diag::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 999px; border: 2px solid transparent; background-clip: content-box; }
-  .diag.is-loading { display: flex; align-items: center; gap: 8px; }
-  .diag.is-loading::before {
-    content: ""; flex: none; width: 12px; height: 12px; border-radius: 50%;
-    border: 2px solid var(--line); border-top-color: var(--text-2);
-    animation: spin .8s linear infinite;
-  }
-  #diag .bad, .diag .bad { color: var(--bad); font-weight: 700; }
-  #diag .good, .diag .good { color: var(--ok); font-weight: 700; }
-
   /* ---------- 底部状态条 ---------- */
   .foot { flex: none; border-top: 1px solid var(--line); background: var(--sidebar); padding: 8px 12px 10px; }
   .status {
@@ -267,14 +244,12 @@
   .status.flash { animation: flash .6s ease-out; }
   .privacy { margin: 7px 0 0; font-size: 10.5px; line-height: 1.5; color: var(--muted); }
 
-  @keyframes spin { to { transform: rotate(360deg); } }
   @keyframes flash {
     0% { border-color: var(--line-strong); background: var(--hover-tint-strong); }
     100% { border-color: var(--line); background: var(--surface); }
   }
   @media (prefers-reduced-motion: reduce) {
     .status.flash { animation: none; }
-    .diag.is-loading::before { animation-duration: 2s; }
   }
 </style>
 </head>
@@ -284,7 +259,7 @@
       <span class="app-logo" aria-hidden="true" data-page-node-id="NbS0kiitDiSV0GDSGFWAep">文</span>
       <div class="app-title" data-page-node-id="5BZA9cqUFKrlShxbORDFeH">
         <h1 class="app-name" data-page-node-id="JWxViIuj8brADVphFxOJ8u">文档化阅读</h1>
-        <span class="app-ver" data-page-node-id="tX80dQF4wZmQSUBYXlUeCQ">v0.3.16</span>
+        <span class="app-ver" data-page-node-id="tX80dQF4wZmQSUBYXlUeCQ">v0.3.20</span>
       </div>
     </div>
     <p class="app-sub" data-page-node-id="rN4LB10LAkfC8eaSsBcAIf">把 DeepSeek 会话重排为文档：阅读、检索、导出、本地收藏。</p>
@@ -294,7 +269,6 @@
     <button type="button" class="tab is-active" data-tab="read" role="tab" aria-selected="true" data-page-node-id="EdguWrXFLU7VCKrX43kmj2">阅读</button>
     <button type="button" class="tab" data-tab="act" role="tab" aria-selected="false" data-page-node-id="CskorsRyx6YaoFPBB79n4Z">操作</button>
     <button type="button" class="tab" data-tab="mark" role="tab" aria-selected="false" data-page-node-id="jvbAVDMSICfgq5LAuFYC3q">收藏</button>
-    <button type="button" class="tab" data-tab="diag" role="tab" aria-selected="false" data-page-node-id="dpTNFUFWdjZBKgGA37oZ4I">诊断</button>
   </nav>
 
   <main class="panes" data-page-node-id="Cx5lo8XGGh4E2w1H1B2mGk">
@@ -361,6 +335,13 @@
             </div>
             <button type="button" class="sw" id="nav" role="switch" aria-checked="false" aria-labelledby="l-nav"></button>
           </div>
+          <div class="row">
+            <div class="row-txt">
+              <label id="l-format"><b>选区格式工具栏</b></label>
+              <small>选中文字时显示 Markdown 格式工具栏</small>
+            </div>
+            <button type="button" class="sw" id="format" role="switch" aria-checked="true" aria-labelledby="l-format"></button>
+          </div>
         </div>
       </div>
     </section>
@@ -422,20 +403,6 @@
       <div class="list" id="bookmark-list" data-page-node-id="ovCzKe7agotFpOiU3ASdSA"></div>
     </section>
 
-    <!-- 运行状态 -->
-    <section class="pane" data-pane="diag" role="tabpanel" aria-label="运行状态" data-page-node-id="7vuaBY3ArJ6lYbwm9mOcO4">
-      <div class="card" data-page-node-id="xl2g3E8Iq6bocW3w26105h">
-        <div class="card-hd" data-page-node-id="L516X04fFODrDtoWukyJwU">
-          <span class="card-title" data-page-node-id="fpU0EPogYKoWzvVkYIjMW1">运行状态</span>
-          <button type="button" class="btn btn-mini" id="check" data-page-node-id="Y1H3ulh492wItZ6Q6oP6Kb">检测状态</button>
-        </div>
-        <div class="card-bd" data-page-node-id="dzpO90O5WIsHMiLizuDZJe">
-          <div id="diag" class="diag" data-page-node-id="LUpG88tuWtCdhqEgPtgoaF">点「检测状态」，扩展自动采集页面数据，无需手动找。</div>
-        </div>
-      </div>
-      <button type="button" class="btn btn-block" id="report" data-page-node-id="GhpzTF3XmNPoC9rYMPMF3v">复制诊断报告</button>
-      <p class="pane-note" data-page-node-id="CF9JCs8WuLMviKj5Bsewj7">报告只包含设置、页面快照与浏览器标识，不含对话正文与账号信息。</p>
-    </section>
   </main>
 
   <footer class="foot" data-page-node-id="bhXWY6ELwkiAcKxbD3gNAn">

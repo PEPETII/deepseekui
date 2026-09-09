@@ -126,3 +126,22 @@
 - 回归：Node 自测 12 项（用户问通过/思考流拦截/回答拦截/自节点拦截/赝文本双写判真、
   Q5 真实文本与单次正在思考不误杀/嵌套去重/清理保持真实+选中态）全过；
   `node --check` 两 JS 通过；三处版本一致。
+
+## DIAG-REMOVE-001 诊断自证链路整功能删除（v0.3.20，非缺陷修复，记录性条目）
+
+- 背景：应用户要求从代码库完整移除“诊断”界面及相关实现（历史条目中
+  `widthProbe`/快照字段/`nativeOutline.count` 等记载即为该链路的历史现场，结论保留不改写）。
+- 删除范围：
+  1. popup：诊断 Tab + 运行状态 pane（`#check` 检测状态、`#diag` 结果区、
+     `#report` 复制诊断报告）+ `.diag` 样式块 + `--ok/--bad` 令牌 +
+     `@keyframes spin` + `.btn-mini`（后两者唯一消费方均在诊断内）。
+  2. content.js：`snapshot()` 快照（含 widthProbe/chain/nativeOutline 采集）、
+     `heartbeat()` 4s 心跳写 `docdeep_heartbeat`、`DOCDEEP_PING` 直回、
+     `window.__DOCDEEP__` 暴露、诊断适配层 `nativeOutlineSnapshot()`。
+  3. 旧键清理：popup `load()` 的 `remove` 列表追加 `docdeep_heartbeat`。
+- 保留说明：`probeNativeOutline()` 为功能代码（目录隐藏打标/补全计数/原生对账消费），
+  本体保留，仅删其上的诊断适配层；返回对象中 `labelsHash/containerSig/sample/refs`
+  自此无消费方，按最小侵入保留未动。
+- 回归：`node --check` 三 JS 通过；三处版本 `0.3.20` 一致；popup id 交叉校验无悬空；
+  tabs/panes（read/act/mark）对齐；Edge headless 渲染 popup 截图正常。
+  详见 `docs/工单计划/删除诊断-工单.md` 与 `docs/完成报告/删除诊断-完成报告.md`。

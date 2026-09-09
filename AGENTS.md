@@ -4,18 +4,18 @@
 
 ## 项目简介
 
-Manifest V3 纯本地 Chrome 扩展，把 `https://chat.deepseek.com/*` 重排为中文文档工作台：阅读排版、右侧大纲、会话内查找、全量导出（MD/JSON）、打印、本地收藏、诊断自证。原则：只打标 + 注入可摘除 UI，不挪动 textarea/form/发送按钮，不读 token/cookie，不调私有 API，不改 fetch（见 `content.js:1-5`）。
+Manifest V3 纯本地 Chrome 扩展，把 `https://chat.deepseek.com/*` 重排为中文文档工作台：阅读排版、右侧大纲、会话内查找、全量导出（MD/JSON）、打印、本地收藏。原则：只打标 + 注入可摘除 UI，不挪动 textarea/form/发送按钮，不读 token/cookie，不调私有 API，不改 fetch（见 `content.js:1-5`）。
 
-当前版本：`0.3.11`（`manifest.json` / `popup.js:POPUP_VER` / `content.js:VERSION` 三处必须同步）。
+当前版本：`0.3.20`（`manifest.json` / `popup.js:POPUP_VER` / `content.js:VERSION` 三处必须同步）。
 
 ## 项目架构
 
 ```
-popup.html/popup.js  -> 面板：设置、大纲开关、复制/查找/打印/导出触发、收藏管理、诊断
+popup.html/popup.js  -> 面板：设置、大纲开关、复制/查找/打印/导出触发、收藏管理
 content.js/css       -> 内容脚本：classify 打标、qOrder 注册表、大纲、工具条、查找面板、导出采集器（含HTML）、侧栏过滤
 background.js        -> 仅下载服务：DOCDEEP_DOWNLOAD -> chrome.downloads（data URL，支持 md/json/html）
-chrome.storage.local -> 设置6键 + 书签 + 心跳快照（Phase-1起 + schema版本键）
-消息总线             -> DOCDEEP_TOGGLE/SETTINGS/TOP/FIND/PRINT/COPY/EXPORT(PING另计：PING为诊断直回)
+chrome.storage.local -> 设置6键 + 书签
+消息总线             -> DOCDEEP_TOGGLE/SETTINGS/TOP/FIND/PRINT/COPY/EXPORT
 ```
 
 无构建步骤、无后端、无 npm，直接加载目录即运行。
@@ -25,7 +25,7 @@ chrome.storage.local -> 设置6键 + 书签 + 心跳快照（Phase-1起 + schema
 * `manifest.json`：权限（`storage,downloads` + host `chat.deepseek.com/*`）、content_scripts、action popup。加权限必须在工单中说明。
 * `content.js`（~1351行）：唯一可碰 DeepSeek DOM 的文件。含 `classify/updateQuestionRegistry/mergeQuestionOrder/buildOutline/collectAllTurns` 等核心。修改需极谨慎。
 * `content.css`：所有规则必须以 `html[data-docdeep="on"]` 开头；`@media print` 独立段。禁止全局选择器。
-* `popup.js/html`：面板逻辑 + 收藏存储 + 诊断。`popup.html` 内联 `<style>`，改 UI 同步改两处。
+* `popup.js/html`：面板逻辑 + 收藏存储。`popup.html` 内联 `<style>`，改 UI 同步改两处。
 * `background.js`：仅下载。禁止在此加 DOM 逻辑或扩大权限。
 * `docs/`：`known-issues.md`（历史问题归档）+ `功能扩展规划.md`（长期记录）+ `工单计划/` + `完成报告/`。
 * `AGENTS.md`：本文件。
@@ -50,14 +50,14 @@ chrome.storage.local -> 设置6键 + 书签 + 心跳快照（Phase-1起 + schema
 ## 修改代码前必须执行的检查
 
 1. `Read` 目标文件全文（或相关段）+ `docs/known-issues.md` 相关条目（尤其 `PAPER-WIDTH-001 / OUTLINE-ORDER-001 / NATIVE-OUTLINE-001`）。
-2. 确认三处版本号是否需同步（改行为逻辑一般需 bump，否则诊断会报版本不一致）。
+2. 确认三处版本号是否需同步（改行为逻辑一般需 bump）。
 3. 确认 `chrome.storage` 新键是否有默认值 + 老版本迁移路径。
 4. 确认 CSS 新增规则是否以 `html[data-docdeep="on"]` 开头，打印规则是否进 `@media print`。
 5. 确认快捷键是否与输入框冲突（必须过 `isEditableTarget`）。
 
 ## 禁止随意修改的区域
 
-* `PAPER-WIDTH-001` 冻结区：`content.js:applySettings/setOn` 强制 `880` + `popup.html:42 disabled`。Phase-2 前不得解冻，动即需工单说明 + 诊断同步。
+* `PAPER-WIDTH-001` 冻结区：`content.js:applySettings/setOn` 强制 `880` + `popup.html:42 disabled`。Phase-2 前不得解冻，动即需工单说明。
 * `classify` 指纹/角色对账核心（`data-docrole/data-docfp`）非必要不动；动必须有虚拟列表复用场景的回归用例。
 * `background.js` 下载 MIME/文件名清洗（`safeFilename`）逻辑，防路径穿越。
 * `manifest.json` 权限/host：加 `sync/contextMenus/sidePanel/<all_urls>` 需用户明确确认。
@@ -74,8 +74,8 @@ chrome.storage.local -> 设置6键 + 书签 + 心跳快照（Phase-1起 + schema
 
 * 书签数组上限 100，单 `tag` 24 字，`title` 非空回退 `未命名会话`，仅接受 `https://chat.deepseek.com` URL（`isDeepSeekUrl` 校验）。导入必须复用同一校验 + 去重（以 `id=url` 去重保序）。
 * `storage.local` 配额约 5-10MB：大文本写入必须截断 + 存计数；写前 `try/catch` 配额失败降级并给人话提示。
-* 心跳/诊断新增字段必须可选（`snap.xxx ?? 缺省`），老 popup 读新快照不崩，新 popup 读老快照不崩。
-* 禁止采集 token/cookie/账号信息；诊断报告仅含设置 + 快照 + UA，全文快照永不进诊断。
+* 心跳/诊断自证链路已于 v0.3.20 删除（含 `docdeep_heartbeat` 键，popup `load()` 主动清理）；如未来新增快照/报告类数据，新字段必须可选（`snap.xxx ?? 缺省`）保证新旧版本互读不崩。
+* 禁止采集 token/cookie/账号信息；任何导出/报告类内容不得包含对话正文。
 
 ## UI 修改原则
 
@@ -88,7 +88,7 @@ chrome.storage.local -> 设置6键 + 书签 + 心跳快照（Phase-1起 + schema
 
 * 消息类型 `DOCDEEP_*` 全大写下划线，新增类型必须在 `content.js:onMessage` + `popup.js:notify/sendPage` 两端处理未知类型（默认忽略），`send` 回调必须判 `chrome.runtime.lastError`。
 * `background.js` 仅接受 `{type:'DOCDEEP_DOWNLOAD', format, filename, content}`（`format: md/json/html`），`content` 非 string 即空串，`filename` 经 `safeFilename`。
-* 不得为新功能新增 host 权限或远程 fetch；BYOK 类联网功能默认关闭且独立模块，密钥仅存本地、不进诊断。
+* 不得为新功能新增 host 权限或远程 fetch；BYOK 类联网功能默认关闭且独立模块，密钥仅存本地、不进任何报告或导出。
 
 ## 测试要求
 
@@ -99,7 +99,7 @@ chrome.storage.local -> 设置6键 + 书签 + 心跳快照（Phase-1起 + schema
 
 ## 回归测试要求
 
-* 必跑：开关启停恢复原站、字号/主题/大纲开关、复制全文、导出 MD/JSON（含取消）、打印样式、查找 ↑↓、诊断版本一致、侧栏过滤、收藏打开/删除。
+* 必跑：开关启停恢复原站、字号/主题/大纲开关、复制全文、导出 MD/JSON（含取消）、打印样式、查找 ↑↓、侧栏过滤、收藏打开/删除。
 * 性能回归：流式时无按钮重复、无大纲闪烁；滚动时 `classify` 无卡顿。
 * 失败即阻断：回归任一失败不得标完成，需记入完成报告“发现的问题”。
 

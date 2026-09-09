@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "DeepSeek 文档化阅读",
-  "version": "0.3.16",
+  "version": "0.3.20",
   "description": "把 DeepSeek 网页版重排为中文文档工作台：阅读、搜索、导出和本地收藏。纯本地增强，不触碰登录与发送链路。",
   "minimum_chrome_version": "109",
   "permissions": ["storage", "downloads"],

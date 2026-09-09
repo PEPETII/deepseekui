@@ -490,6 +490,82 @@ html[data-docdeep="on"] form:has(textarea) button[aria-disabled="true"] {
   opacity: .6 !important;
 }
 
+/* ---------- 原生输入框 Markdown 格式工具栏（Phase-6） ---------- */
+/* 工具栏是独立 fixed 注入节点，只按选区估算位置贴近，不进入 form 布局。
+   颜色完全走 --dd-* 令牌：默认温润纸感是浅底深字，纯白主题同样浅底，墨色主题是深底浅字。 */
+html[data-docdeep="on"] #docdeep-formatbar {
+  position: fixed;
+  z-index: 2147483001;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: min(420px, calc(100vw - 16px));
+  padding: 5px;
+  background: var(--dd-surface);
+  border: 1px solid var(--dd-line);
+  border-radius: 999px;
+  box-shadow: var(--dd-shadow);
+  color: var(--dd-text);
+  font-family: var(--dd-font);
+  opacity: .98;
+  transition: border-color var(--dd-dur-base) var(--dd-ease), box-shadow var(--dd-dur-base) var(--dd-ease), opacity var(--dd-dur-base) var(--dd-ease);
+}
+html[data-docdeep="on"] #docdeep-formatbar[hidden] { display: none !important; }
+html[data-docdeep="on"] #docdeep-formatbar:hover {
+  border-color: var(--dd-line-strong);
+  box-shadow: var(--dd-shadow-hover);
+}
+html[data-docdeep="on"] #docdeep-formatbar .doc-format-btn,
+html[data-docdeep="on"] #docdeep-formatbar .doc-format-select {
+  box-sizing: border-box;
+  height: 30px;
+  border: 1px solid transparent;
+  border-radius: var(--dd-radius-sm);
+  background: transparent;
+  color: var(--dd-text);
+  font-family: var(--dd-font);
+  font-size: 13px;
+  line-height: 1;
+}
+html[data-docdeep="on"] #docdeep-formatbar .doc-format-btn {
+  min-width: 30px;
+  padding: 0 8px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background-color var(--dd-dur-fast) var(--dd-ease), border-color var(--dd-dur-fast) var(--dd-ease), color var(--dd-dur-fast) var(--dd-ease);
+}
+html[data-docdeep="on"] #docdeep-formatbar .doc-format-btn--strong { font-weight: 800; }
+html[data-docdeep="on"] #docdeep-formatbar .doc-format-btn--em { font-style: italic; }
+html[data-docdeep="on"] #docdeep-formatbar .doc-format-btn:hover,
+html[data-docdeep="on"] #docdeep-formatbar .doc-format-select:hover {
+  border-color: var(--dd-line-strong);
+  background: var(--dd-hover);
+  color: var(--dd-text);
+}
+html[data-docdeep="on"] #docdeep-formatbar .doc-format-btn:active { transform: translateY(.5px); }
+html[data-docdeep="on"] #docdeep-formatbar .doc-format-btn:focus-visible,
+html[data-docdeep="on"] #docdeep-formatbar .doc-format-select:focus-visible {
+  outline: 2px solid var(--dd-line-strong);
+  outline-offset: 1px;
+}
+html[data-docdeep="on"] #docdeep-formatbar .doc-format-select option {
+  background: var(--dd-surface);
+  color: var(--dd-text);
+}
+html[data-docdeep="on"] #docdeep-formatbar .doc-format-select {
+  min-width: 112px;
+  padding: 0 26px 0 9px;
+  outline: none;
+  cursor: pointer;
+  transition: background-color var(--dd-dur-fast) var(--dd-ease), border-color var(--dd-dur-fast) var(--dd-ease), color var(--dd-dur-fast) var(--dd-ease);
+}
+html[data-docdeep="on"] #docdeep-formatbar .doc-format-divider {
+  width: 1px;
+  height: 20px;
+  margin: 0 2px;
+  background: var(--dd-line);
+}
+
 /* ---------- 左侧会话栏：纳入文档工作台 ---------- */
 /* 只接管视觉、盒模型和滚动反馈；不覆盖原生 width/position/display, 保留展开折叠。 */
 html[data-docdeep="on"] [data-docshell="side"] {
@@ -976,12 +1052,6 @@ html[data-docdeep="on"] #docdeep-outline .doc-ol-selbtn:focus-visible {
   outline: 2px solid var(--dd-line-strong);
   outline-offset: 2px;
 }
-html[data-docdeep="on"] #docdeep-outline .doc-ol-selbtn.doc-ol-sel-only {
-  background: var(--dd-hover-tint-strong);
-  border-color: var(--dd-line-strong);
-  color: var(--dd-text);
-  font-weight: 600;
-}
 /* 列表 */
 html[data-docdeep="on"] #docdeep-outline .doc-ol-list {
   flex: 1 1 auto;
@@ -1325,6 +1395,12 @@ html[data-docdeep="on"] #docdeep-export-dialog .doc-export-close {
   html[data-docdeep="on"] #docdeep-dock { left: 12px; right: 12px; max-width: none; align-items: stretch; }
   html[data-docdeep="on"] #docdeep-tools .doc-tools-row { justify-content: flex-start; }
   html[data-docdeep="on"] #docdeep-tools .doc-tools-meta { justify-content: flex-start; }
+  html[data-docdeep="on"] #docdeep-formatbar {
+    max-width: calc(100vw - 16px);
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    border-radius: var(--dd-radius);
+  }
 }
 
 /* ---------- 打印: 只留纸，侧栏/顶栏/工具条/输入框全部隐藏 ---------- */
@@ -1335,6 +1411,7 @@ html[data-docdeep="on"] #docdeep-export-dialog .doc-export-close {
   html[data-docdeep="on"] header,
   html[data-docdeep="on"] #docdeep-outline,
   html[data-docdeep="on"] #docdeep-dock,
+  html[data-docdeep="on"] #docdeep-formatbar,
   html[data-docdeep="on"] #docdeep-tools,
   html[data-docdeep="on"] #docdeep-count,
   html[data-docdeep="on"] #docdeep-ver,
