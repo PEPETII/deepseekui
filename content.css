@@ -490,6 +490,95 @@ html[data-docdeep="on"] form:has(textarea) button[aria-disabled="true"] {
   opacity: .6 !important;
 }
 
+/* ---------- 富文本编辑表面：固定覆盖原生 textarea，不改变 form 节点树 ---------- */
+/* textarea 保留原尺寸、name、form 归属和发送底层；可视文字由 body 下的 contenteditable 表面承载。 */
+html[data-docdeep="on"] textarea[data-docdeep-rich-source="1"] {
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+  caret-color: transparent !important;
+  background: transparent !important;
+  border-color: transparent !important;
+  pointer-events: none !important;
+  user-select: none !important;
+}
+html[data-docdeep="on"] textarea[data-docdeep-rich-source="1"]::placeholder {
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+}
+html[data-docdeep="on"] #docdeep-rich-editor {
+  position: fixed;
+  z-index: 2147483000;
+  box-sizing: border-box;
+  overflow: auto;
+  padding: 8px 12px;
+  border: 0;
+  border-left: 2px solid transparent;
+  border-radius: var(--dd-radius) !important;
+  outline: none;
+  background: var(--dd-surface-2);
+  color: var(--dd-text);
+  caret-color: var(--dd-brand);
+  font: 15px/1.7 var(--dd-font);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  user-select: text;
+  cursor: text;
+}
+html[data-docdeep="on"] #docdeep-rich-editor[hidden] { display: none !important; }
+html[data-docdeep="on"] #docdeep-rich-editor:focus {
+  border-left-color: var(--dd-brand);
+  background: var(--dd-surface-2);
+}
+html[data-docdeep="on"] #docdeep-rich-editor[data-docdeep-empty="true"]::before {
+  content: attr(data-docdeep-placeholder);
+  color: var(--dd-muted);
+  pointer-events: none;
+}
+html[data-docdeep="on"] #docdeep-rich-editor [data-doc-block="1"] {
+  min-height: 1.7em;
+  margin: 0;
+}
+html[data-docdeep="on"] #docdeep-rich-editor [data-doc-block-kind="h1"] {
+  font-size: 1.45em;
+  font-weight: 750;
+}
+html[data-docdeep="on"] #docdeep-rich-editor [data-doc-block-kind="h2"] {
+  font-size: 1.25em;
+  font-weight: 700;
+}
+html[data-docdeep="on"] #docdeep-rich-editor [data-doc-block-kind="h3"] {
+  font-size: 1.1em;
+  font-weight: 700;
+}
+html[data-docdeep="on"] #docdeep-rich-editor [data-doc-block-kind="unordered"]::before {
+  content: "• ";
+  color: var(--dd-brand);
+}
+html[data-docdeep="on"] #docdeep-rich-editor {
+  counter-reset: docdeep-rich-ordered;
+}
+html[data-docdeep="on"] #docdeep-rich-editor [data-doc-block-kind="ordered"] {
+  counter-increment: docdeep-rich-ordered;
+}
+html[data-docdeep="on"] #docdeep-rich-editor [data-doc-block-kind="ordered"]::before {
+  content: counter(docdeep-rich-ordered) ". ";
+  color: var(--dd-brand);
+}
+html[data-docdeep="on"] #docdeep-rich-editor strong { font-weight: 750; }
+html[data-docdeep="on"] #docdeep-rich-editor code {
+  padding: .05em .25em;
+  border-radius: var(--dd-radius-sm);
+  background: var(--dd-surface-sunken);
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: .92em;
+}
+html[data-docdeep="on"] #docdeep-rich-editor a {
+  color: var(--dd-brand-strong);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 /* ---------- 原生输入框 Markdown 格式工具栏（Phase-6） ---------- */
 /* 工具栏是独立 fixed 注入节点，只按选区估算位置贴近，不进入 form 布局。
    颜色完全走 --dd-* 令牌：默认温润纸感是浅底深字，纯白主题同样浅底，墨色主题是深底浅字。 */
@@ -1411,6 +1500,7 @@ html[data-docdeep="on"] #docdeep-export-dialog .doc-export-close {
   html[data-docdeep="on"] header,
   html[data-docdeep="on"] #docdeep-outline,
   html[data-docdeep="on"] #docdeep-dock,
+  html[data-docdeep="on"] #docdeep-rich-editor,
   html[data-docdeep="on"] #docdeep-formatbar,
   html[data-docdeep="on"] #docdeep-tools,
   html[data-docdeep="on"] #docdeep-count,

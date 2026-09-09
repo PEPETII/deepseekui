@@ -1,7 +1,7 @@
-// popup v0.3.20: 阅读设置 + 搜索/导出 + 本地会话收藏
+// popup v0.3.21: 阅读设置 + 搜索/导出 + 本地会话收藏
 const $ = (id) => document.getElementById(id);
 // POPUP_VER 与 manifest.json / content.js VERSION 三处同步(见 AGENTS.md 版本号规则)
-const POPUP_VER = '0.3.20';
+const POPUP_VER = '0.3.21';
 const DEFAULTS = { docdeep_enabled: true, docdeep_width: 880, docdeep_font: 17, docdeep_theme: 'mi', docdeep_outline: true, docdeep_keys: true, docdeep_hide_native: false, docdeep_format: true };
 const BOOKMARKS_KEY = 'docdeep_bookmarks';
 const SCHEMA_VER = 2;

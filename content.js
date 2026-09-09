@@ -1,6 +1,7 @@
 /* DeepSeek 文档化阅读 v0.3 — content.js
- * 原则: 只打标 + 注入可摘除 UI, 不挪动 textarea/form/发送按钮,
+ * 原则: 只打标 + 注入可摘除 UI, 不移动 textarea/form/发送按钮,
  * 不读 token/cookie, 不调私有 API, 不改 fetch。
+ * WYSIWYG 是明确例外：textarea 仍保留在原 form 中，但可视输入由本地表面代理并同步回写。
  * 所有注入节点带 .docdeep-injected, 关闭时完整摘除即恢复原站。
  */
 (() => {
@@ -12,7 +13,7 @@
   const AI_SEL = '.ds-markdown.ds-assistant-message-main-content, .ds-assistant-message-main-content';
   const THINK_SEL = '.ds-thinking, [class*="ds-thinking"], [data-thinking]';
   const USER_COLLAPSE_LEN = 420;
-  const VERSION = '0.3.20';
+  const VERSION = '0.3.21';
   const DEFAULTS = { docdeep_enabled: true, docdeep_width: 880, docdeep_font: 17, docdeep_theme: 'mi', docdeep_outline: true, docdeep_keys: true, docdeep_hide_native: false, docdeep_format: true };
 
   let lastUrl = location.href;
@@ -45,10 +46,15 @@
   let outlineComplete = null; // Phase-2 一键补全独立令牌(禁止复用 exportState 对象)
   // Phase-3 选择性导出: null=未触碰=全量, Set=已触碰选中集(内存态,不落盘,URL切换清空)
   let selectedQKeys = null;
-  // Phase-6 Markdown 编辑：只绑定原生 textarea，工具栏自身完全可摘除。
+  // 富文本编辑表面：原生 textarea 保留为 Markdown 发送底层，编辑器本体使用本地模型。
   let formatBinding = null;
   let formatSelection = null;
   let formatToolbarPositionScheduled = false;
+  let richBinding = null;
+  let richSelection = null;
+  let richEditorPositionScheduled = false;
+  const RICH_SOURCE_ATTR = 'data-docdeep-rich-source';
+  const RICH_EDITOR_ID = 'docdeep-rich-editor';
 
   const isOn = () => document.documentElement.getAttribute(ATTR) === 'on';
 
@@ -577,7 +583,639 @@
     return dock;
   }
 
-  // ---- Phase-6: 原生 textarea Markdown 编辑 ----
+  // ---- WYSIWYG：本地 contenteditable 表面 + Markdown textarea 底层 ----
+  // 不移动原生 textarea；它仍留在原 form 中，仅作为同步/发送底层。可视编辑器是 body 下的固定覆盖层。
+  const richModel = () => globalThis.DocDeepRichModel || null;
+
+  function richBlockElements(root) {
+    return root ? [...root.children].filter((node) => node.nodeType === 1) : [];
+  }
+
+  function richBlockForNode(root, node) {
+    if (!root || !node) return null;
+    let current = node.nodeType === 1 ? node : node.parentElement;
+    while (current && current.parentElement !== root) current = current.parentElement;
+    return current && current.parentElement === root ? current : null;
+  }
+
+  function richBlockTextLength(block) {
+    if (block?.childNodes?.length === 1 && block.firstChild?.nodeType === 1 && block.firstChild.tagName === 'BR') return 0;
+    const measure = (node) => {
+      if (!node) return 0;
+      if (node.nodeType === 3) return String(node.nodeValue || '').replace(/\u200b/g, '').length;
+      if (node.nodeType !== 1) return 0;
+      if (node.tagName === 'BR') return 1;
+      return [...node.childNodes].reduce((n, child) => n + measure(child), 0);
+    };
+    return measure(block);
+  }
+
+  function richBlockBaseOffset(root, block) {
+    let total = 0;
+    for (const candidate of richBlockElements(root)) {
+      if (candidate === block) return total;
+      total += richBlockTextLength(candidate) + 1;
+    }
+    return total;
+  }
+
+  function richPointOffset(root, container, offset) {
+    const blocks = richBlockElements(root);
+    if (!blocks.length) return 0;
+    const block = richBlockForNode(root, container);
+    if (!block) {
+      if (container === root) {
+        const childIndex = Math.max(0, Math.min(root.childNodes.length, Number(offset) || 0));
+        return Array.from(root.childNodes).slice(0, childIndex).reduce((n, child) => n + richBlockTextLength(child) + 1, 0);
+      }
+      return 0;
+    }
+    const measureToPoint = (node) => {
+      if (node === container) {
+        if (node === block && node.childNodes.length === 1 && node.firstChild?.nodeType === 1 && node.firstChild.tagName === 'BR') return 0;
+        if (node.nodeType === 3) return Math.max(0, Math.min(node.nodeValue.length, Number(offset) || 0));
+        const childIndex = Math.max(0, Math.min(node.childNodes.length, Number(offset) || 0));
+        return Array.from(node.childNodes).slice(0, childIndex).reduce((n, child) => n + measureNode(child), 0);
+      }
+      return measureNode(node);
+    };
+    const measureNode = (node) => {
+      if (!node) return 0;
+      if (node === container) return measureToPoint(node);
+      if (node.nodeType === 3) return String(node.nodeValue || '').replace(/\u200b/g, '').length;
+      if (node.nodeType !== 1) return 0;
+      if (node.tagName === 'BR') return 1;
+      return [...node.childNodes].reduce((n, child) => n + measureNode(child), 0);
+    };
+    try { return richBlockBaseOffset(root, block) + measureNode(block); }
+    catch { return richBlockBaseOffset(root, block); }
+  }
+
+  function richPointFromNodeOffset(node, remaining) {
+    if (!node) return { node: null, offset: 0 };
+    if (node.nodeType === 3) return { node, offset: Math.max(0, Math.min(node.nodeValue.length, remaining)) };
+    if (node.nodeType !== 1) return { node, offset: node.childNodes?.length || 0 };
+    let rest = Math.max(0, remaining);
+    for (let index = 0; index < node.childNodes.length; index += 1) {
+      const child = node.childNodes[index];
+      const length = child.nodeType === 1 && child.tagName === 'BR'
+        ? 1
+        : child.nodeType === 3
+          ? String(child.nodeValue || '').replace(/\u200b/g, '').length
+          : richBlockTextLength(child);
+      if (child.nodeType === 1 && child.tagName === 'BR') {
+        if (rest <= 0) return { node, offset: index };
+        if (rest <= 1) return { node, offset: index + 1 };
+      } else if (rest <= length) {
+        return richPointFromNodeOffset(child, rest);
+      }
+      rest -= length;
+    }
+    return { node, offset: node.childNodes.length };
+  }
+
+  function richPointFromOffset(root, position) {
+    const blocks = richBlockElements(root);
+    let remaining = Math.max(0, Number(position) || 0);
+    for (let i = 0; i < blocks.length; i += 1) {
+      const block = blocks[i];
+      const length = richBlockTextLength(block);
+      if (remaining <= length || i === blocks.length - 1) {
+        return richPointFromNodeOffset(block, remaining);
+      }
+      remaining -= length + 1;
+    }
+    const last = blocks[blocks.length - 1];
+    return { node: last, offset: last.childNodes.length };
+  }
+
+  function richSelectionDirection(selection, range) {
+    if (!selection || selection.isCollapsed) return 'none';
+    return selection.anchorNode === range.startContainer && selection.anchorOffset === range.startOffset ? 'forward' : 'backward';
+  }
+
+  function readRichSelection(binding) {
+    const editor = binding?.editor;
+    const selection = window.getSelection?.();
+    if (!editor || !selection || !selection.rangeCount || !selection.anchorNode || !selection.focusNode) return null;
+    const range = selection.getRangeAt(0);
+    if (!editor.contains(range.commonAncestorContainer)) return null;
+    const start = richPointOffset(editor, range.startContainer, range.startOffset);
+    const end = richPointOffset(editor, range.endContainer, range.endOffset);
+    return {
+      editor,
+      start: Math.min(start, end),
+      end: Math.max(start, end),
+      direction: richSelectionDirection(selection, range),
+    };
+  }
+
+  function rememberRichSelection(binding = richBinding) {
+    const selection = readRichSelection(binding);
+    if (selection) richSelection = selection;
+    return selection;
+  }
+
+  function richRangeFromOffsets(editor, start, end) {
+    const range = document.createRange();
+    const a = richPointFromOffset(editor, start);
+    const b = richPointFromOffset(editor, end);
+    try {
+      range.setStart(a.node, a.offset);
+      range.setEnd(b.node, b.offset);
+    } catch {
+      range.selectNodeContents(editor);
+      range.collapse(true);
+    }
+    return range;
+  }
+
+  function restoreRichSelection(binding, start, end, direction = 'none') {
+    const editor = binding?.editor;
+    if (!editor || !editor.isConnected) return;
+    try {
+      editor.focus({ preventScroll: true });
+    } catch {
+      try { editor.focus(); } catch {}
+    }
+    const range = richRangeFromOffsets(editor, start, end);
+    const selection = window.getSelection?.();
+    if (!selection) return;
+    try {
+      selection.removeAllRanges();
+      if (direction === 'backward' && !range.collapsed && selection.setBaseAndExtent) {
+        selection.setBaseAndExtent(range.endContainer, range.endOffset, range.startContainer, range.startOffset);
+      } else {
+        selection.addRange(range);
+      }
+    } catch {}
+    richSelection = { editor, start, end, direction };
+  }
+
+  function cloneRichSelection(selection) {
+    if (!selection) return null;
+    return {
+      start: Math.max(0, Number(selection.start) || 0),
+      end: Math.max(0, Number(selection.end) || 0),
+      direction: selection.direction || 'none',
+    };
+  }
+
+  function clearRichHistory(binding) {
+    if (!binding || binding.historyReplay) return;
+    binding.history = [];
+    binding.historyIndex = 0;
+  }
+
+  function recordRichHistory(binding, beforeModel, beforeSelection, afterModel, afterSelection) {
+    if (!binding || binding.historyReplay) return;
+    binding.history = (binding.history || []).slice(0, binding.historyIndex || 0);
+    binding.history.push({
+      before: { model: beforeModel, selection: cloneRichSelection(beforeSelection) },
+      after: { model: afterModel, selection: cloneRichSelection(afterSelection) },
+    });
+    if (binding.history.length > 100) binding.history.shift();
+    binding.historyIndex = binding.history.length;
+  }
+
+  function restoreRichHistorySnapshot(binding, snapshot) {
+    const api = richModel();
+    if (!api || !binding?.editor || !snapshot) return false;
+    binding.historyReplay = true;
+    try {
+      binding.model = api.normalizeModel(snapshot.model);
+      renderRichModel(binding.editor, binding.model);
+      syncTextareaFromRich(binding, binding.model);
+      const selection = snapshot.selection || { start: 0, end: 0, direction: 'none' };
+      restoreRichSelection(binding, selection.start, selection.end, selection.direction);
+      updateFormattingToolbarVisibility();
+      scheduleFormattingToolbarPosition();
+      return true;
+    } finally {
+      binding.historyReplay = false;
+    }
+  }
+
+  function undoRichHistory(binding) {
+    if (!binding?.historyIndex) return false;
+    const entry = binding.history[binding.historyIndex - 1];
+    if (!entry || !restoreRichHistorySnapshot(binding, entry.before)) return false;
+    binding.historyIndex -= 1;
+    return true;
+  }
+
+  function redoRichHistory(binding) {
+    if (!binding?.history || binding.historyIndex >= binding.history.length) return false;
+    const entry = binding.history[binding.historyIndex];
+    if (!entry || !restoreRichHistorySnapshot(binding, entry.after)) return false;
+    binding.historyIndex += 1;
+    return true;
+  }
+
+  function richMarksFromElement(node, inherited = {}) {
+    const marks = { ...inherited };
+    if (!node || node.nodeType !== 1) return marks;
+    const tag = node.tagName.toLowerCase();
+    if (tag === 'strong' || tag === 'b') marks.bold = true;
+    if (tag === 'em' || tag === 'i') marks.italic = true;
+    if (tag === 's' || tag === 'del' || tag === 'strike') marks.strike = true;
+    if (tag === 'code') marks.code = true;
+    if (tag === 'a' && /^(?:https?:|mailto:)/i.test(node.getAttribute('href') || '')) marks.link = node.getAttribute('href');
+    const style = node.getAttribute('style') || '';
+    if (/font-weight\s*:\s*(?:bold|[6-9]\d\d)/i.test(style)) marks.bold = true;
+    if (/font-style\s*:\s*italic/i.test(style)) marks.italic = true;
+    return marks;
+  }
+
+  function richMarksEqual(a = {}, b = {}) {
+    return ['bold', 'italic', 'strike', 'code', 'link']
+      .every((key) => String(a[key] || '') === String(b[key] || ''));
+  }
+
+  function pushRichDomRun(runs, text, marks) {
+    const value = String(text || '').replace(/\u200b/g, '');
+    if (!value) return;
+    const previous = runs[runs.length - 1];
+    if (previous && richMarksEqual(previous.marks, marks)) {
+      previous.text += value;
+      return;
+    }
+    runs.push({ text: value, marks: { ...marks } });
+  }
+
+  function readRichInline(node, runs, marks = {}) {
+    if (!node) return;
+    if (node.nodeType === 3) {
+      pushRichDomRun(runs, node.nodeValue, marks);
+      return;
+    }
+    if (node.nodeType !== 1) return;
+    if (node.tagName === 'BR') {
+      pushRichDomRun(runs, '\n', marks);
+      return;
+    }
+    const nextMarks = richMarksFromElement(node, marks);
+    [...node.childNodes].forEach((child) => readRichInline(child, runs, nextMarks));
+  }
+
+  function readRichModel(editor) {
+    const api = richModel();
+    if (!api) return { blocks: [{ kind: 'text', runs: [] }] };
+    const blocks = richBlockElements(editor).map((block) => {
+      const tag = block.tagName.toLowerCase();
+      const markedKind = block.dataset.docBlockKind;
+      const kind = api.BLOCK_KINDS.has(markedKind) ? markedKind
+        : /^h[1-3]$/.test(tag) ? tag : 'text';
+      const runs = [];
+      const children = [...block.childNodes];
+      if (!(children.length === 1 && children[0].nodeType === 1 && children[0].tagName === 'BR')) {
+        children.forEach((child) => readRichInline(child, runs));
+      }
+      return { kind, runs };
+    });
+    return api.normalizeModel({ blocks: blocks.length ? blocks : [{ kind: 'text', runs: [] }] });
+  }
+
+  function createRichInline(run) {
+    let node = document.createTextNode(String(run.text || ''));
+    const marks = run.marks || {};
+    if (marks.link) {
+      const link = document.createElement('a');
+      link.href = String(marks.link);
+      link.target = '_blank';
+      link.rel = 'noreferrer noopener';
+      link.appendChild(node);
+      node = link;
+    }
+    if (marks.code) {
+      const code = document.createElement('code');
+      code.appendChild(node);
+      node = code;
+    }
+    if (marks.strike) {
+      const strike = document.createElement('s');
+      strike.appendChild(node);
+      node = strike;
+    }
+    if (marks.italic) {
+      const italic = document.createElement('em');
+      italic.appendChild(node);
+      node = italic;
+    }
+    if (marks.bold) {
+      const bold = document.createElement('strong');
+      bold.appendChild(node);
+      node = bold;
+    }
+    return node;
+  }
+
+  function renderRichModel(editor, model) {
+    const api = richModel();
+    if (!editor || !api) return;
+    const normalized = api.normalizeModel(model);
+    const fragment = document.createDocumentFragment();
+    normalized.blocks.forEach((blockData) => {
+      const block = document.createElement('div');
+      block.className = INJECTED;
+      block.dataset.docBlock = '1';
+      block.dataset.docBlockKind = blockData.kind;
+      blockData.runs.forEach((run) => block.appendChild(createRichInline(run)));
+      if (!blockData.runs.length) block.appendChild(document.createElement('br'));
+      fragment.appendChild(block);
+    });
+    editor.replaceChildren(fragment);
+    editor.dataset.docdeepEmpty = api.serializeMarkdown(normalized) ? 'false' : 'true';
+  }
+
+  function syncTextareaFromRich(binding, model = null) {
+    const api = richModel();
+    const ta = binding?.textarea;
+    if (!api || !ta || !ta.isConnected) return '';
+    const value = api.serializeMarkdown(model || binding.model || readRichModel(binding.editor));
+    if (value === ta.value) {
+      binding.lastSerialized = value;
+      return value;
+    }
+    binding.syncing = true;
+    try {
+      ta.value = value;
+      dispatchTextareaInput(ta, value);
+    } finally {
+      binding.syncing = false;
+    }
+    binding.lastSerialized = value;
+    return value;
+  }
+
+  function syncRichFromTextarea(binding, force = false) {
+    const api = richModel();
+    const ta = binding?.textarea;
+    if (!api || !ta || !binding.editor || binding.syncing || !ta.isConnected) return;
+    const value = String(ta.value || '');
+    if (!force && value === binding.lastSerialized) return;
+    clearRichHistory(binding);
+    const selection = document.activeElement === binding.editor ? readRichSelection(binding) : null;
+    binding.model = api.parseMarkdown(value);
+    binding.lastSerialized = value;
+    renderRichModel(binding.editor, binding.model);
+    if (selection) restoreRichSelection(binding, Math.min(selection.start, api.modelTextLength(binding.model)), Math.min(selection.end, api.modelTextLength(binding.model)), selection.direction);
+    scheduleRichEditorPosition();
+  }
+
+  function nativeComposerSendButton(ta) {
+    const form = ta?.closest?.('form');
+    if (!form) return null;
+    const buttons = [...form.querySelectorAll('button')];
+    return buttons.find((button) => {
+      const label = (button.getAttribute('aria-label') || '') + ' ' + (button.getAttribute('data-testid') || '');
+      return button.type === 'submit' || /发送|send/i.test(label);
+    }) || null;
+  }
+
+  function handleRichInput(binding) {
+    const api = richModel();
+    if (!api || !binding?.editor || binding.composing) return;
+    clearRichHistory(binding);
+    const selection = readRichSelection(binding);
+    const pending = binding.pendingMark && binding.pendingStart != null ? {
+      mark: binding.pendingMark,
+      start: binding.pendingStart,
+      desired: binding.pendingValue !== false,
+    } : null;
+    let model = readRichModel(binding.editor);
+    if (pending && selection && selection.end > pending.start) {
+      const result = api.setMark(model, pending.start, selection.end, pending.mark, pending.desired);
+      if (result.changed) {
+        model = result.model;
+        renderRichModel(binding.editor, model);
+        restoreRichSelection(binding, pending.start, selection.end, 'forward');
+      }
+      binding.pendingMark = null;
+      binding.pendingStart = null;
+      binding.pendingValue = null;
+    } else if (pending) {
+      binding.pendingMark = null;
+      binding.pendingStart = null;
+      binding.pendingValue = null;
+    }
+    binding.model = model;
+    syncTextareaFromRich(binding, model);
+    const nextSelection = readRichSelection(binding);
+    if (nextSelection) richSelection = nextSelection;
+    updateFormattingToolbarVisibility();
+    scheduleRichEditorPosition();
+  }
+
+  function applyRichFormatting(binding, kind, savedSelection = null) {
+    const api = richModel();
+    if (!api || !binding?.editor || !binding.editor.isConnected) return false;
+    const selection = savedSelection || readRichSelection(binding) || richSelection;
+    if (!selection || selection.editor !== binding.editor) return false;
+    const model = readRichModel(binding.editor);
+    const result = api.BLOCK_KINDS.has(kind)
+      ? api.toggleBlock(model, selection.start, selection.end, kind)
+      : api.toggleMark(model, selection.start, selection.end, kind);
+    if (!result.changed) {
+      if (selection.start === selection.end && ['bold', 'italic', 'strike'].includes(kind)) {
+        binding.typingMarks[kind] = result.typingMark === true;
+        binding.pendingMark = result.typingMark ? kind : null;
+        binding.pendingValue = result.typingMark === true;
+        binding.pendingStart = selection.start;
+      }
+      restoreRichSelection(binding, selection.start, selection.end, selection.direction);
+      updateFormattingToolbarVisibility();
+      return false;
+    }
+    const beforeModel = api.normalizeModel(model);
+    const beforeSelection = cloneRichSelection(selection);
+    binding.model = result.model;
+    if (binding.typingMarks) binding.typingMarks[kind] = false;
+    renderRichModel(binding.editor, binding.model);
+    syncTextareaFromRich(binding, binding.model);
+    const afterSelection = {
+      start: result.selectionStart,
+      end: result.selectionEnd,
+      direction: selection.direction,
+    };
+    recordRichHistory(binding, beforeModel, beforeSelection, api.normalizeModel(binding.model), afterSelection);
+    restoreRichSelection(binding, afterSelection.start, afterSelection.end, afterSelection.direction);
+    updateFormattingToolbarVisibility();
+    scheduleFormattingToolbarPosition();
+    return true;
+  }
+
+  function positionRichEditor() {
+    richEditorPositionScheduled = false;
+    const binding = richBinding;
+    const editor = binding?.editor;
+    const ta = binding?.textarea;
+    if (!editor || !ta || !editor.isConnected || !ta.isConnected || !isOn()) return;
+    const rect = ta.getBoundingClientRect();
+    if (!rect.width || !rect.height) {
+      editor.hidden = true;
+      return;
+    }
+    editor.hidden = false;
+    editor.style.left = Math.round(rect.left) + 'px';
+    editor.style.top = Math.round(rect.top) + 'px';
+    editor.style.width = Math.round(rect.width) + 'px';
+    editor.style.height = Math.round(rect.height) + 'px';
+  }
+
+  function scheduleRichEditorPosition() {
+    if (richEditorPositionScheduled) return;
+    richEditorPositionScheduled = true;
+    const run = () => positionRichEditor();
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(run);
+    else setTimeout(run, 0);
+  }
+
+  function bindRichEditor(binding) {
+    const { editor, textarea } = binding;
+    const observe = () => {
+      if (document.activeElement === editor) {
+        const selection = rememberRichSelection(binding);
+        if (selection && selection.start !== selection.end) {
+          binding.typingMarks = {};
+          binding.pendingMark = null;
+          binding.pendingStart = null;
+          binding.pendingValue = null;
+        }
+      }
+      updateFormattingToolbarVisibility();
+      scheduleFormattingToolbarPosition();
+    };
+    const keydown = (e) => {
+      if (e.defaultPrevented || !isOn()) return;
+      if (!e.isComposing && e.keyCode !== 229 && (e.ctrlKey || e.metaKey)) {
+        const key = String(e.key || '').toLowerCase();
+        if (key === 'z') {
+          const handled = e.shiftKey ? redoRichHistory(binding) : undoRichHistory(binding);
+          if (handled) e.preventDefault();
+          return;
+        }
+        if (key === 'y' && !e.shiftKey) {
+          if (redoRichHistory(binding)) e.preventDefault();
+          return;
+        }
+      }
+      if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.keyCode !== 229) {
+        syncTextareaFromRich(binding, readRichModel(editor));
+        const button = nativeComposerSendButton(textarea);
+        if (!button || button.disabled || button.getAttribute('aria-disabled') === 'true') return;
+        e.preventDefault();
+        button.click();
+        return;
+      }
+      const kind = formattingShortcut(e);
+      if (!kind) return;
+      e.preventDefault();
+      const selection = rememberRichSelection(binding) || richSelection;
+      if (selection && selection.start !== selection.end) applyRichFormatting(binding, kind, selection);
+      else if (selection) applyRichFormatting(binding, kind, selection);
+    };
+    const beforeinput = (e) => {
+      if (!binding.composing && e.inputType === 'historyUndo' && undoRichHistory(binding)) {
+        e.preventDefault();
+        return;
+      }
+      if (!binding.composing && e.inputType === 'historyRedo' && redoRichHistory(binding)) {
+        e.preventDefault();
+        return;
+      }
+      if (binding.pendingMark && !binding.composing) {
+        const selection = readRichSelection(binding);
+        if (selection && selection.start === selection.end) binding.pendingStart = selection.start;
+      }
+      if (binding.typingMarks && !binding.composing) {
+        const selection = readRichSelection(binding);
+        if (selection && selection.start === selection.end) {
+          const active = Object.keys(binding.typingMarks).find((mark) => binding.typingMarks[mark] === true);
+          if (active) {
+            binding.pendingMark = active;
+            binding.pendingValue = true;
+            binding.pendingStart = selection.start;
+          }
+        }
+      }
+    };
+    const input = () => handleRichInput(binding);
+    const compositionstart = () => { binding.composing = true; };
+    const compositionend = () => { binding.composing = false; handleRichInput(binding); };
+    const textareaInput = () => syncRichFromTextarea(binding);
+    const events = [
+      ['focus', observe], ['keyup', observe], ['mouseup', observe], ['click', observe],
+      ['beforeinput', beforeinput], ['input', input], ['compositionstart', compositionstart],
+      ['compositionend', compositionend],
+    ];
+    events.forEach(([type, handler]) => editor.addEventListener(type, handler));
+    textarea.addEventListener('input', textareaInput);
+    const selectionchange = () => {
+      if (document.activeElement === editor) observe();
+      else {
+        const bar = document.querySelector('#docdeep-formatbar');
+        if (!bar || !bar.contains(document.activeElement)) hideFormattingToolbar();
+      }
+    };
+    document.addEventListener('selectionchange', selectionchange, true);
+    binding.listeners = events.map(([type, handler]) => ({ target: editor, type, handler }));
+    binding.listeners.push({ target: textarea, type: 'input', handler: textareaInput });
+    binding.globalListeners = [{ target: document, type: 'selectionchange', handler: selectionchange }];
+  }
+
+  function ensureRichEditor(ta) {
+    if (!ta || !ta.isConnected || settings.docdeep_format === false) return null;
+    if (richBinding?.textarea === ta && richBinding.editor?.isConnected) {
+      richBinding.editor.dataset.docdeepPlaceholder = ta.placeholder || '在此继续写作或追问,回车发送…';
+      syncRichFromTextarea(richBinding);
+      scheduleRichEditorPosition();
+      return richBinding.editor;
+    }
+    removeRichEditor();
+    const editor = document.createElement('div');
+    editor.id = RICH_EDITOR_ID;
+    editor.className = INJECTED;
+    editor.contentEditable = 'true';
+    editor.setAttribute('role', 'textbox');
+    editor.setAttribute('aria-multiline', 'true');
+    editor.setAttribute('aria-label', '富文本消息输入框');
+    editor.dataset.docdeepPlaceholder = ta.placeholder || '在此继续写作或追问,回车发送…';
+    editor.spellcheck = true;
+    editor.hidden = true;
+    document.body.appendChild(editor);
+    ta.setAttribute(RICH_SOURCE_ATTR, '1');
+    ta.dataset.docdeepOriginalTabindex = ta.hasAttribute('tabindex')
+      ? (ta.getAttribute('tabindex') ?? '')
+      : '__docdeep_missing__';
+    ta.tabIndex = -1;
+    richBinding = { textarea: ta, editor, model: null, lastSerialized: null, syncing: false, composing: false, typingMarks: {}, pendingMark: null, pendingValue: null, pendingStart: null, history: [], historyIndex: 0, historyReplay: false, listeners: [], globalListeners: [] };
+    bindRichEditor(richBinding);
+    syncRichFromTextarea(richBinding, true);
+    scheduleRichEditorPosition();
+    return editor;
+  }
+
+  function removeRichEditor() {
+    if (richBinding) {
+      richBinding.listeners?.forEach(({ target, type, handler }) => target.removeEventListener(type, handler));
+      richBinding.globalListeners?.forEach(({ target, type, handler }) => target.removeEventListener(type, handler, true));
+      if (richBinding.textarea?.isConnected) {
+        richBinding.textarea.removeAttribute(RICH_SOURCE_ATTR);
+        const originalTabindex = richBinding.textarea.dataset.docdeepOriginalTabindex;
+        if (originalTabindex !== '__docdeep_missing__' && originalTabindex != null) richBinding.textarea.setAttribute('tabindex', originalTabindex);
+        else richBinding.textarea.removeAttribute('tabindex');
+        delete richBinding.textarea.dataset.docdeepOriginalTabindex;
+      }
+      richBinding.editor?.remove();
+    }
+    document.querySelectorAll('#' + RICH_EDITOR_ID).forEach((node) => node.remove());
+    richBinding = null;
+    richSelection = null;
+    richEditorPositionScheduled = false;
+  }
+
+  // Phase-6 Markdown 编辑：textarea 仍作为未启用富文本时的兼容回退路径。
   // 纯函数入口同时作为行为测试边界：不读 DOM、不触碰发送链路。
   function formatMarkdownValue(value, start, end, kind, direction = 'none') {
     const source = String(value ?? '');
@@ -815,6 +1453,26 @@
 
   function updateFormattingToolbarVisibility() {
     const bar = document.querySelector('#docdeep-formatbar');
+    const rich = richBinding?.editor;
+    if (rich && rich.isConnected) {
+      if (!bar || !isOn() || settings.docdeep_format === false) {
+        if (bar) bar.hidden = true;
+        return;
+      }
+      if (document.activeElement !== rich && !bar.contains(document.activeElement)) {
+        bar.hidden = true;
+        return;
+      }
+      const selection = readRichSelection(richBinding) || richSelection;
+      if (!selection || selection.start === selection.end) {
+        bar.hidden = true;
+        return;
+      }
+      richSelection = selection;
+      bar.hidden = false;
+      scheduleFormattingToolbarPosition();
+      return;
+    }
     const ta = formatBinding?.textarea;
     if (!bar || !ta || !ta.isConnected || !isOn() || settings.docdeep_format === false) {
       if (bar) bar.hidden = true;
@@ -907,6 +1565,7 @@
   function removeFormattingToolbar() {
     unbindFormattingTextarea();
     formatSelection = null;
+    removeRichEditor();
     document.querySelectorAll('#docdeep-formatbar').forEach((n) => n.remove());
   }
 
@@ -920,10 +1579,15 @@
     button.addEventListener('mousedown', (e) => {
       if (e.button === 0) {
         rememberFormattingSelection(formatBinding?.textarea);
+        rememberRichSelection(richBinding);
         e.preventDefault();
       }
     });
     button.addEventListener('click', () => {
+      if (richBinding?.editor?.isConnected) {
+        applyRichFormatting(richBinding, kind, richSelection?.editor === richBinding.editor ? richSelection : null);
+        return;
+      }
       const ta = formatBinding?.textarea || nativeComposerTextarea();
       if (ta) applyMarkdownToTextarea(ta, kind, formatSelection?.textarea === ta ? formatSelection : null);
     });
@@ -934,16 +1598,17 @@
     const ta = nativeComposerTextarea();
     let bar = document.querySelector('#docdeep-formatbar');
     if (settings.docdeep_format === false || !ta) {
-      if (bar) removeFormattingToolbar();
+      if (bar || richBinding) removeFormattingToolbar();
       return;
     }
+    ensureRichEditor(ta);
     if (!bar) {
       bar = document.createElement('div');
       bar.id = 'docdeep-formatbar';
       bar.className = INJECTED;
       bar.hidden = true;
       bar.setAttribute('role', 'toolbar');
-      bar.setAttribute('aria-label', 'Markdown 格式工具栏');
+      bar.setAttribute('aria-label', '富文本格式工具栏');
       bar.append(
         makeFormattingButton('B', '加粗 (Ctrl/Cmd+B)', 'bold', 'doc-format-btn--strong'),
         makeFormattingButton('I', '斜体 (Ctrl/Cmd+I)', 'italic', 'doc-format-btn--em'),
@@ -969,8 +1634,15 @@
         option.textContent = label;
         select.appendChild(option);
       });
-      select.addEventListener('mousedown', () => rememberFormattingSelection(formatBinding?.textarea));
+      select.addEventListener('mousedown', () => {
+        rememberFormattingSelection(formatBinding?.textarea);
+        rememberRichSelection(richBinding);
+      });
       select.addEventListener('change', () => {
+        if (richBinding?.editor?.isConnected) {
+          applyRichFormatting(richBinding, select.value, richSelection?.editor === richBinding.editor ? richSelection : null);
+          return;
+        }
         const current = formatBinding?.textarea || nativeComposerTextarea();
         if (current) applyMarkdownToTextarea(current, select.value, formatSelection?.textarea === current ? formatSelection : null);
       });
@@ -1010,6 +1682,33 @@
   function positionFormattingToolbar() {
     formatToolbarPositionScheduled = false;
     const bar = document.querySelector('#docdeep-formatbar');
+    const rich = richBinding?.editor;
+    if (bar && rich && rich.isConnected && isOn()) {
+      const selection = richSelection?.editor === rich && richSelection.start !== richSelection.end
+        ? richSelection
+        : readRichSelection(richBinding);
+      if (!selection || (document.activeElement !== rich && !bar.contains(document.activeElement))) {
+        bar.hidden = true;
+        return;
+      }
+      const editorRect = rich.getBoundingClientRect();
+      const selectionRect = richRangeFromOffsets(rich, selection.start, selection.end).getBoundingClientRect();
+      const anchor = (selectionRect.width || selectionRect.height)
+        ? selectionRect
+        : editorRect;
+      bar.hidden = false;
+      const barRect = bar.getBoundingClientRect();
+      const gap = 8;
+      const viewportWidth = document.documentElement.clientWidth || window.innerWidth || editorRect.right;
+      const viewportHeight = document.documentElement.clientHeight || window.innerHeight || editorRect.bottom;
+      const left = Math.max(8, Math.min(anchor.left + (anchor.right - anchor.left) / 2 - barRect.width / 2, viewportWidth - barRect.width - 8));
+      let top = anchor.top - barRect.height - gap;
+      if (top < 8) top = anchor.bottom + gap;
+      if (top + barRect.height > viewportHeight - 8) top = Math.max(8, viewportHeight - barRect.height - 8);
+      bar.style.left = Math.round(left) + 'px';
+      bar.style.top = Math.round(top) + 'px';
+      return;
+    }
     const ta = formatBinding?.textarea;
     if (!bar || !ta || !ta.isConnected || !isOn()
       || (document.activeElement !== ta && !bar.contains(document.activeElement))) {
@@ -2929,8 +3628,12 @@
   document.addEventListener('scroll', () => {
     scheduleSpy();
     scheduleFormattingToolbarPosition();
+    scheduleRichEditorPosition();
   }, true); // 捕获滚动(含虚拟列表), 仅做大纲高亮 + 工具栏定位
-  window.addEventListener('resize', scheduleFormattingToolbarPosition);
+  window.addEventListener('resize', () => {
+    scheduleFormattingToolbarPosition();
+    scheduleRichEditorPosition();
+  });
   const rawPush = history.pushState;
   history.pushState = function (...a) { hideFormattingToolbar(); const r = rawPush.apply(this, a); schedule(); return r; };
   const rawRep = history.replaceState;

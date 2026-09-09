@@ -4,15 +4,16 @@
 
 ## 项目简介
 
-Manifest V3 纯本地 Chrome 扩展，把 `https://chat.deepseek.com/*` 重排为中文文档工作台：阅读排版、右侧大纲、会话内查找、全量导出（MD/JSON）、打印、本地收藏。原则：只打标 + 注入可摘除 UI，不挪动 textarea/form/发送按钮，不读 token/cookie，不调私有 API，不改 fetch（见 `content.js:1-5`）。
+Manifest V3 纯本地 Chrome 扩展，把 `https://chat.deepseek.com/*` 重排为中文文档工作台：阅读排版、右侧大纲、会话内查找、全量导出（MD/JSON）、打印、本地收藏。原则：只打标 + 注入可摘除 UI，不移动原生 textarea/form/发送按钮，不读 token/cookie，不调私有 API，不改 fetch（见 `content.js:1-5`）。富文本输入是明确例外：保留原生 textarea/form/发送按钮节点及归属，在 textarea 上方挂载本地 contenteditable 表面，并把内容序列化回原生 textarea 后点击原生发送按钮；该突破见 `docs/工单计划/Phase-6-WYSIWYG.md`。
 
-当前版本：`0.3.20`（`manifest.json` / `popup.js:POPUP_VER` / `content.js:VERSION` 三处必须同步）。
+当前版本：`0.3.21`（`manifest.json` / `popup.js:POPUP_VER` / `content.js:VERSION` 三处必须同步）。
 
 ## 项目架构
 
 ```
 popup.html/popup.js  -> 面板：设置、大纲开关、复制/查找/打印/导出触发、收藏管理
-content.js/css       -> 内容脚本：classify 打标、qOrder 注册表、大纲、工具条、查找面板、导出采集器（含HTML）、侧栏过滤
+rich-model.js       -> 无 DOM、无网络的 block + inline mark 模型，负责 Markdown 解析/序列化和格式 toggle
+content.js/css       -> 内容脚本：classify 打标、qOrder 注册表、大纲、富文本表面/工具条、查找面板、导出采集器（含HTML）、侧栏过滤
 background.js        -> 仅下载服务：DOCDEEP_DOWNLOAD -> chrome.downloads（data URL，支持 md/json/html）
 chrome.storage.local -> 设置6键 + 书签
 消息总线             -> DOCDEEP_TOGGLE/SETTINGS/TOP/FIND/PRINT/COPY/EXPORT
@@ -23,7 +24,8 @@ chrome.storage.local -> 设置6键 + 书签
 ## 主要目录职责
 
 * `manifest.json`：权限（`storage,downloads` + host `chat.deepseek.com/*`）、content_scripts、action popup。加权限必须在工单中说明。
-* `content.js`（~1351行）：唯一可碰 DeepSeek DOM 的文件。含 `classify/updateQuestionRegistry/mergeQuestionOrder/buildOutline/collectAllTurns` 等核心。修改需极谨慎。
+* `rich-model.js`：本地富文本模型；不得加入 DOM、网络、CDN 或私有 API 依赖。
+* `content.js`（~3800行）：唯一可碰 DeepSeek DOM 的文件。含 `classify/updateQuestionRegistry/mergeQuestionOrder/buildOutline/collectAllTurns` 等核心，以及富文本表面生命周期。修改需极谨慎。
 * `content.css`：所有规则必须以 `html[data-docdeep="on"]` 开头；`@media print` 独立段。禁止全局选择器。
 * `popup.js/html`：面板逻辑 + 收藏存储。`popup.html` 内联 `<style>`，改 UI 同步改两处。
 * `background.js`：仅下载。禁止在此加 DOM 逻辑或扩大权限。
