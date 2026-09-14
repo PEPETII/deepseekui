@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "DeepSeek 文档化阅读",
-  "version": "0.3.21",
+  "name": "deepseek ui",
+  "version": "0.3.26",
   "description": "把 DeepSeek 网页版重排为中文文档工作台：阅读、搜索、导出和本地收藏。纯本地增强，保留原生表单发送链路。",
   "minimum_chrome_version": "109",
   "permissions": ["storage", "downloads"],
@@ -9,7 +9,7 @@
   "content_scripts": [
     {
       "matches": ["https://chat.deepseek.com/*"],
-      "js": ["rich-model.js", "content.js"],
+      "js": ["rich-model.js", "queue.js", "content.js"],
       "css": ["content.css"],
       "run_at": "document_idle",
       "all_frames": false
@@ -19,7 +19,7 @@
     "service_worker": "background.js"
   },
   "action": {
-    "default_title": "文档化开关",
+    "default_title": "deepseek ui",
     "default_popup": "popup.html"
   }
 }

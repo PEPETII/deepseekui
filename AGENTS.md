@@ -1,22 +1,23 @@
 # AGENTS.md
 
-> 本文件约束所有参与本项目（DeepSeek 文档化阅读 v0.3.x）开发的代理行为。基于真实代码结构制定，非通用模板。
+> 本文件约束所有参与本项目（deepseek ui v0.3.x）开发的代理行为。基于真实代码结构制定，非通用模板。
 
 ## 项目简介
 
-Manifest V3 纯本地 Chrome 扩展，把 `https://chat.deepseek.com/*` 重排为中文文档工作台：阅读排版、右侧大纲、会话内查找、全量导出（MD/JSON）、打印、本地收藏。原则：只打标 + 注入可摘除 UI，不移动原生 textarea/form/发送按钮，不读 token/cookie，不调私有 API，不改 fetch（见 `content.js:1-5`）。富文本输入是明确例外：保留原生 textarea/form/发送按钮节点及归属，在 textarea 上方挂载本地 contenteditable 表面，并把内容序列化回原生 textarea 后点击原生发送按钮；该突破见 `docs/工单计划/Phase-6-WYSIWYG.md`。
+Manifest V3 纯本地 Chrome 扩展，把 `https://chat.deepseek.com/*` 重排为中文文档工作台：阅读排版、右侧大纲、会话内查找、全量导出（MD/JSON）、打印、本地收藏。原则：只打标 + 注入可摘除 UI，不移动原生 textarea/form/发送按钮，不读 token/cookie，不调私有 API，不改 fetch（见 `content.js:1-5`）。富文本输入是明确例外：保留原生 textarea/form/发送按钮节点及归属，在 textarea 上方挂载本地 contenteditable 表面，并把内容序列化回原生 textarea 后点击原生发送按钮；该突破见 `docs/工单计划/Phase-6-WYSIWYG.md`。对话队列（Phase-7）不新增例外：它复用同一条原生发送链路（写回 textarea + 派发 input + 点原生发送按钮），不改路由、不新开会话、不新增权限，队列只存内存且只由用户显式启动。
 
-当前版本：`0.3.21`（`manifest.json` / `popup.js:POPUP_VER` / `content.js:VERSION` 三处必须同步）。
+当前版本：`0.3.26`（`manifest.json` / `popup.js:POPUP_VER` / `content.js:VERSION` 三处必须同步）。
 
 ## 项目架构
 
 ```
-popup.html/popup.js  -> 面板：设置、大纲开关、复制/查找/打印/导出触发、收藏管理
+popup.html/popup.js  -> 面板：阅读设置、外观模板（橙色/深色预设）、大纲开关、复制/查找/打印/导出触发、对话队列（录题启停）、收藏管理
 rich-model.js       -> 无 DOM、无网络的 block + inline mark 模型，负责 Markdown 解析/序列化和格式 toggle
-content.js/css       -> 内容脚本：classify 打标、qOrder 注册表、大纲、富文本表面/工具条、查找面板、导出采集器（含HTML）、侧栏过滤
+queue.js            -> 无 DOM、无 chrome 的对话队列纯逻辑：入队文本解析、发送/停止按钮语义、reducer 状态机与阈值
+content.js/css       -> 内容脚本：classify 打标、qOrder 注册表、大纲、富文本表面/工具条、查找面板、导出采集器（含HTML）、侧栏过滤、对话队列运行时（停止探针/turn 采样/原生发送原语/注入进度面板）
 background.js        -> 仅下载服务：DOCDEEP_DOWNLOAD -> chrome.downloads（data URL，支持 md/json/html）
 chrome.storage.local -> 设置6键 + 书签
-消息总线             -> DOCDEEP_TOGGLE/SETTINGS/TOP/FIND/PRINT/COPY/EXPORT
+消息总线             -> DOCDEEP_TOGGLE/SETTINGS/TOP/FIND/PRINT/COPY/EXPORT/QUEUE/QUEUE_STATE
 ```
 
 无构建步骤、无后端、无 npm，直接加载目录即运行。
@@ -25,6 +26,7 @@ chrome.storage.local -> 设置6键 + 书签
 
 * `manifest.json`：权限（`storage,downloads` + host `chat.deepseek.com/*`）、content_scripts、action popup。加权限必须在工单中说明。
 * `rich-model.js`：本地富文本模型；不得加入 DOM、网络、CDN 或私有 API 依赖。
+* `queue.js`：对话队列纯逻辑（解析 / 按钮语义 / reducer）；同样禁止加入 DOM、网络、chrome 依赖，阈值集中在 `TUNING`。队列判定改动必须补 `tests/queue.test.js` 用例。
 * `content.js`（~3800行）：唯一可碰 DeepSeek DOM 的文件。含 `classify/updateQuestionRegistry/mergeQuestionOrder/buildOutline/collectAllTurns` 等核心，以及富文本表面生命周期。修改需极谨慎。
 * `content.css`：所有规则必须以 `html[data-docdeep="on"]` 开头；`@media print` 独立段。禁止全局选择器。
 * `popup.js/html`：面板逻辑 + 收藏存储。`popup.html` 内联 `<style>`，改 UI 同步改两处。
@@ -81,7 +83,7 @@ chrome.storage.local -> 设置6键 + 书签
 
 ## UI 修改原则
 
-* popup 宽 280px 卡片体系不变；新增控件沿用 `.card/.row/.btns` 样式；收藏列表 `max-height` 内滚动，不得撑高面板。
+* popup 宽 320px 卡片体系不变；新增控件沿用 `.card/.row/.btns` 样式；收藏列表 `max-height` 内滚动，不得撑高面板。
 * 内容脚本新增浮层 `z-index: 2147483000` 系，`position: fixed`，墨色主题需同步配色（`[data-doctheme="mo"]` 分支）。
 * 所有按钮 `type="button"`，输入框有 `aria-label`；空状态有人话（例：暂无收藏/无匹配）。
 * 查找/大纲高亮只动注入节点类名（`.active/.doc-search-hit`），不动原文样式。
@@ -95,13 +97,13 @@ chrome.storage.local -> 设置6键 + 书签
 ## 测试要求
 
 * 每个 Task 必须自测：正常路径 + 至少 2 个边界（空配置/非法输入/非 DeepSeek 页/老版本数据/存储失败）。
-* popup 逻辑无浏览器时，用 Node 对纯函数（`normalize/migrate/filter`）做单测；DOM 逻辑用最小 HTML 夹具验证。
+* popup 逻辑无浏览器时，用 Node 对纯函数（`normalize/migrate/filter/activeTemplate`）做单测；DOM 逻辑用最小 HTML 夹具验证。
 * 大纲/定位改动必须在“长会话（虚拟列表回收）+ 流式中 + 回到顶部”三场景下验证编号不抖动。
 * 导入/导出往返测试：导出→清空→导入→一致。
 
 ## 回归测试要求
 
-* 必跑：开关启停恢复原站、字号/主题/大纲开关、复制全文、导出 MD/JSON（含取消）、打印样式、查找 ↑↓、侧栏过滤、收藏打开/删除。
+* 必跑：开关启停恢复原站、字号/主题/大纲开关、模板分区选中即应用（模板卡与纸张主题下拉双向一致）、复制全文、导出 MD/JSON（含取消）、打印样式、查找 ↑↓、侧栏过滤、收藏打开/删除。
 * 性能回归：流式时无按钮重复、无大纲闪烁；滚动时 `classify` 无卡顿。
 * 失败即阻断：回归任一失败不得标完成，需记入完成报告“发现的问题”。
 

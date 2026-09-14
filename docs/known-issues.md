@@ -145,3 +145,53 @@
 - 回归：`node --check` 三 JS 通过；三处版本 `0.3.20` 一致；popup id 交叉校验无悬空；
   tabs/panes（read/act/mark）对齐；Edge headless 渲染 popup 截图正常。
   详见 `docs/工单计划/删除诊断-工单.md` 与 `docs/完成报告/删除诊断-完成报告.md`。
+
+## RICH-FRAME-001 富文本表面聚焦浮现赤陶竖线 / 溢出叠加系统滚动条（v0.3.25 修复）
+
+- 现象：在原生输入栏里选中文字、弹出选区格式工具栏时（那一刻编辑器正好取得焦点），
+  输入栏左内边缘会浮现一条 2px 赤陶竖线；正文超出可视高度时，右侧还会多出一条
+  15px 系统滚动条。两者都让输入栏外观偏离未聚焦时的常态，看起来像多余装饰。
+- 定位：
+  1. `#docdeep-rich-editor:focus { border-left-color: var(--dd-brand) }` 是从原生 textarea
+     的「聚焦时左侧浮现强调色竖线」设计复制来的。但编辑器是铺满 textarea 的覆盖层，
+     这条竖线必然与格式工具栏同时出现，被读成多余的竖栏/滑动条。
+     （像素扫描佐证：图一无橙色列，图二仅 `x=40..42` 三列呈赤陶色；两图滚动条
+     同在 `x≈1189`、同宽同高，故图二新增元素只有这条竖线。）
+  2. 滚动条是 `overflow: auto` 在内容溢出时的默认占位（`offsetWidth - clientWidth = 15px`），
+     占位会把正文宽度压窄 15px，与常态不一致。
+- 修复（仅 `content.css`，`#docdeep-rich-editor` 两处）：
+  1. 删除 `border-left: 2px solid transparent` 与整个 `:focus` 块；左内边距由 `8px 12px`
+     改为 `8px 12px 8px 14px`，把原先占位的 2px 边框宽度并入内边距——文本起始 x
+     与内容区宽度与改动前逐像素一致（夹具实测四状态恒定 149px）。
+  2. 新增 `scrollbar-width: none` 与 `::-webkit-scrollbar { width: 0; height: 0 }`：
+     编辑器滚动条既不绘制也不占位；`overflow: auto` 保留，滚轮/键盘滚动行为不变。
+- 范围边界：只改覆盖层。原生 `textarea:focus` 的同类竖线规则未动（富文本模式下它被
+  编辑器完全遮挡，仅当用户关掉 `docdeep_format` 时才可见），故原生输入框既有外观不变。
+- 回归：`node --check` 五个 JS 通过；44/44 单测通过；夹具探针四状态
+  （未聚焦 / 聚焦空 / 选中 / 溢出）均为 `border-left = 0px none`、`vScrollbar = 0px`、
+  文本起始 x 恒定；四状态 Edge headless 截图无新异常。
+
+## RICH-OFFSET-001 富文本表面退化为空容器 / 裸文本节点时偏移换算抛 childNodes 异常（v0.3.26 修复）
+
+- 现象：会话页（`/a/chat/s/<id>`）控制台报
+  `Uncaught TypeError: Cannot read properties of undefined (reading 'childNodes')`，
+  栈顶 `content.js`（修复前为 `:715`，即 `richPointFromOffset` 尾部的 `last.childNodes.length`）。
+- 根因：`richBlockElements(root)` 只看 `root.children`（元素子节点）。contenteditable 被
+  「全选删除」后可能留下零子节点容器；更常见的是容器没有块子节点时，浏览器把随后的输入
+  **直接写成裸文本节点**。两种情况下 `blocks` 都是空数组 → 循环一次都不执行 →
+  `last = undefined` → 抛错。
+- 连带缺陷（同一根因、未被报错暴露）：`readRichModel` 同样以 `richBlockElements` 为唯一来源，
+  遇到游离内容时把已输入文本读成空串 → 内容被静默丢弃、textarea 被写空。
+- 修复（仅 `content.js`）：
+  1. 新增 `ensureRichBlocks(editor)`：无元素子节点时，把游离内容收进一个
+     `docBlockKind="text"` 的块；真空容器补一个 `<br>` 块。幂等，正常编辑器零动作。
+  2. `richPointFromOffset` 入口加空保护：`root` 为空返回 `{node: null, offset: 0}`；
+     `blocks` 为空返回 `{node: root, offset: 0}`（调用方 `richRangeFromOffsets` 已有 try/catch）。
+  3. `readRichModel` 与 `handleRichInput` 在读数/读选区前调用 `ensureRichBlocks`，
+     避免读数丢失并让首次按键后的偏移量就落在块内；`handleRichInput` 保留 `composing`
+     提前返回，不在 IME 组字期间动 DOM。
+- 范围边界：不改 `richPointOffset` / `richBlockTextLength` / `richBlockBaseOffset` 的既有语义，
+  不动消息协议、存储键、发送链路与原生 textarea 归属。
+- 回归：`node --check` 通过；既有单测 44/44 通过；jsdom 抽取真实函数跑 13/13 —— 含
+  「旧实现复现上述报错」「正常多块编辑器 0..10 偏移与修复前逐点一致」「ensureRichBlocks 幂等」。
+  真实 DeepSeek 页面的实机确认仍待用户补测。

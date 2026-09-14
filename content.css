@@ -1,4 +1,4 @@
-/* DeepSeek 文档化阅读 v0.3 — 纯视觉重排，不动功能节点。
+/* deepseek ui v0.3 — 纯视觉重排，不动功能节点。
    所有规则以 html[data-docdeep="on"] 开头，关闭即恢复原站。
    版式由 JS 经 --doc-paper-w / --doc-font 变量注入，主题经 data-doctheme 切换。
    v0.3.4-ui：注入组件统一走 --dd-* 设计令牌，主题只需覆盖令牌。
@@ -510,9 +510,11 @@ html[data-docdeep="on"] #docdeep-rich-editor {
   z-index: 2147483000;
   box-sizing: border-box;
   overflow: auto;
-  padding: 8px 12px;
+  /* 左内边距吸收原先那 2px 透明边框：文本起始位置与原生输入框保持一致，
+     同时不再有「聚焦即浮现赤陶竖线」的反馈——它在选中文字弹出格式工具栏时
+     会被误读成一条多余竖栏/滑动条，使输入栏外观偏离未聚焦时的常态。 */
+  padding: 8px 12px 8px 14px;
   border: 0;
-  border-left: 2px solid transparent;
   border-radius: var(--dd-radius) !important;
   outline: none;
   background: var(--dd-surface-2);
@@ -524,12 +526,15 @@ html[data-docdeep="on"] #docdeep-rich-editor {
   word-break: break-word;
   user-select: text;
   cursor: text;
+  /* 滚动只由编辑器自身承担，但滚动条一律不绘制也不占位：否则内容一多，
+     原生输入栏右侧就会凭空多出一条 15px 系统滚动条，并把正文宽度压窄 15px。 */
+  scrollbar-width: none;
+}
+html[data-docdeep="on"] #docdeep-rich-editor::-webkit-scrollbar {
+  width: 0;
+  height: 0;
 }
 html[data-docdeep="on"] #docdeep-rich-editor[hidden] { display: none !important; }
-html[data-docdeep="on"] #docdeep-rich-editor:focus {
-  border-left-color: var(--dd-brand);
-  background: var(--dd-surface-2);
-}
 html[data-docdeep="on"] #docdeep-rich-editor[data-docdeep-empty="true"]::before {
   content: attr(data-docdeep-placeholder);
   color: var(--dd-muted);
@@ -885,6 +890,137 @@ html[data-docdeep="on"] #docdeep-count {
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
+
+/* ---------- Phase-7 对话队列：运行中的进度与控制 ---------- */
+html[data-docdeep="on"] #docdeep-queue {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 236px;
+  max-width: 100%;
+  padding: 9px 10px;
+  background: var(--dd-surface);
+  border: 1px solid var(--dd-line);
+  border-radius: var(--dd-radius-lg);
+  box-shadow: var(--dd-shadow);
+  font-family: var(--dd-font);
+  color: var(--dd-text);
+}
+html[data-docdeep="on"] #docdeep-queue[data-state="paused"] { border-color: var(--dd-brand-line); }
+
+html[data-docdeep="on"] #docdeep-queue .doc-queue-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+html[data-docdeep="on"] #docdeep-queue .doc-queue-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--dd-text-2);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+html[data-docdeep="on"] #docdeep-queue .doc-queue-title::before {
+  content: "";
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--dd-brand);
+}
+html[data-docdeep="on"] #docdeep-queue[data-state="paused"] .doc-queue-title::before { background: var(--dd-muted); }
+html[data-docdeep="on"] #docdeep-queue[data-state="done"] .doc-queue-title::before { background: var(--dd-brand-strong); }
+
+html[data-docdeep="on"] #docdeep-queue button {
+  flex: none;
+  border: 1px solid var(--dd-line);
+  background: var(--dd-surface-2);
+  color: var(--dd-text-2);
+  border-radius: var(--dd-radius-sm);
+  font-size: 11.5px;
+  line-height: 1;
+  padding: 5px 9px;
+  cursor: pointer;
+  font-family: var(--dd-font);
+  white-space: nowrap;
+  transition: background-color var(--dd-dur-fast) var(--dd-ease), border-color var(--dd-dur-fast) var(--dd-ease), color var(--dd-dur-fast) var(--dd-ease);
+}
+html[data-docdeep="on"] #docdeep-queue button:hover:not(:disabled) {
+  border-color: var(--dd-line-strong);
+  background: var(--dd-hover);
+  color: var(--dd-text);
+}
+html[data-docdeep="on"] #docdeep-queue button:active:not(:disabled) { transform: translateY(.5px); }
+html[data-docdeep="on"] #docdeep-queue button:focus-visible {
+  outline: 2px solid var(--dd-line-strong);
+  outline-offset: 2px;
+}
+html[data-docdeep="on"] #docdeep-queue button:disabled { opacity: .5; cursor: not-allowed; }
+
+html[data-docdeep="on"] #docdeep-queue .doc-queue-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 132px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+html[data-docdeep="on"] #docdeep-queue .doc-queue-list::-webkit-scrollbar { width: 8px; }
+html[data-docdeep="on"] #docdeep-queue .doc-queue-list::-webkit-scrollbar-thumb {
+  background: var(--dd-scrollbar-thumb);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+html[data-docdeep="on"] #docdeep-queue .doc-queue-item {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 2px 4px;
+  border-radius: var(--dd-radius-sm);
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--dd-muted);
+}
+html[data-docdeep="on"] #docdeep-queue .doc-queue-mark {
+  flex: none;
+  width: 10px;
+  text-align: center;
+  color: var(--dd-muted);
+}
+html[data-docdeep="on"] #docdeep-queue .doc-queue-text {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+html[data-docdeep="on"] #docdeep-queue .doc-queue-item[data-state="done"] .doc-queue-mark { color: var(--dd-brand); }
+html[data-docdeep="on"] #docdeep-queue .doc-queue-item[data-state="done"] .doc-queue-text { text-decoration: line-through; text-decoration-color: var(--dd-line-strong); }
+html[data-docdeep="on"] #docdeep-queue .doc-queue-item[data-state="current"] {
+  background: var(--dd-brand-weak);
+  color: var(--dd-text);
+  font-weight: 500;
+}
+html[data-docdeep="on"] #docdeep-queue .doc-queue-item[data-state="current"] .doc-queue-mark { color: var(--dd-brand-strong); }
+html[data-docdeep="on"] #docdeep-queue .doc-queue-item[data-state="paused"] { color: var(--dd-text-2); }
+html[data-docdeep="on"] #docdeep-queue .doc-queue-item[data-state="paused"] .doc-queue-mark { color: var(--dd-brand-strong); }
+
+html[data-docdeep="on"] #docdeep-queue .doc-queue-note {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--dd-brand-strong);
+}
+html[data-docdeep="on"] #docdeep-queue .doc-queue-note[hidden] { display: none; }
 
 /* ---------- 当前会话查找 ---------- */
 html[data-docdeep="on"] #docdeep-find {
@@ -1507,6 +1643,7 @@ html[data-docdeep="on"] #docdeep-export-dialog .doc-export-close {
   html[data-docdeep="on"] #docdeep-ver,
   html[data-docdeep="on"] #docdeep-toast,
   html[data-docdeep="on"] #docdeep-find,
+  html[data-docdeep="on"] #docdeep-queue,
   html[data-docdeep="on"] #docdeep-export-progress,
   html[data-docdeep="on"] #docdeep-export-dialog,
   html[data-docdeep="on"] #docdeep-keys-help,

@@ -1,7 +1,7 @@
-// popup v0.3.21: 阅读设置 + 搜索/导出 + 本地会话收藏
+// popup v0.3.26: 阅读设置 + 外观模板 + 搜索/导出 + 对话队列 + 本地会话收藏
 const $ = (id) => document.getElementById(id);
 // POPUP_VER 与 manifest.json / content.js VERSION 三处同步(见 AGENTS.md 版本号规则)
-const POPUP_VER = '0.3.21';
+const POPUP_VER = '0.3.26';
 const DEFAULTS = { docdeep_enabled: true, docdeep_width: 880, docdeep_font: 17, docdeep_theme: 'mi', docdeep_outline: true, docdeep_keys: true, docdeep_hide_native: false, docdeep_format: true };
 const BOOKMARKS_KEY = 'docdeep_bookmarks';
 const SCHEMA_VER = 2;
@@ -440,6 +440,153 @@ async function handleImportFile(file) {
   } catch {}
   return { ok, imported: parsed.bookmarks.length, skipped: skippedTotal };
 }
+// ---- 外观模板（「模板」分区）----
+// 模板 = 对纸张主题档位（docdeep_theme）的具名预设。当前只开两档：
+// 橙色（= 现有默认外观 mi）/ 深色（= 墨色 mo）。纯白 bai 仍是「阅读」里的档位，不占模板位。
+// 新增模板只需往这里加一项 + 在 popup.html 加一张 .skin 卡，不动主题机制。
+const TEMPLATES = [
+  { id: 'mi', name: '橙色', desc: '当前外观 · 米黄纸面 + 赤陶点睛' },
+  { id: 'mo', name: '深色', desc: '墨色纸面 · 低亮度阅读不刺眼' },
+];
+
+// 纯函数：当前主题命中的模板 id；未命中（如 bai 或脏数据）返回 null —— 不选任何卡，而不是错误高亮
+function activeTemplate(theme) {
+  const t = String(theme ?? '');
+  return TEMPLATES.some(item => item.id === t) ? t : null;
+}
+
+// 渲染模板卡选中态（只改注入面板内的类名与 aria，不碰业务数据）
+function paintTemplates(theme) {
+  const active = activeTemplate(theme);
+  let nodes = [];
+  try { nodes = [...document.querySelectorAll('.skin[data-skin]')]; } catch { return; }
+  nodes.forEach(el => {
+    const on = el.dataset.skin === active;
+    el.classList.toggle('is-active', on);
+    el.setAttribute('aria-pressed', String(on));
+  });
+}
+
+// 即时应用主题：popup 自身换肤 + 落盘 + 通知内容脚本；模板卡与「阅读」的下拉共用这一条路径
+async function applyTheme(value, note) {
+  const theme = String(value ?? '');
+  if (!TEMPLATES.some(item => item.id === theme) && theme !== 'bai') return false;
+  document.documentElement.dataset.theme = (theme === 'mo') ? 'dark' : 'light';
+  paintTemplates(theme);
+  try { $('theme').value = theme; } catch {} // 反向同步下拉，避免两个入口显示不一致
+  if (typeof chrome === 'undefined' || !chrome.storage) return false;
+  try { await chrome.storage.local.set({ docdeep_theme: theme }); }
+  catch { try { $('tip').textContent = '本地存储已满或写入失败，仅保留本次显示。'; } catch {} return false; }
+  let s = { ...DEFAULTS };
+  try { s = { ...DEFAULTS, ...(await chrome.storage.local.get(DEFAULTS)) }; } catch {}
+  await notify({ type: 'DOCDEEP_SETTINGS', settings: s });
+  if (note) { try { $('tip').textContent = note; } catch {} }
+  return true;
+}
+
+// 模板卡点击接线：任何文档环境都接（扩展面板 / 本地预览），applyTheme 内部对无 chrome 环境安全返回
+function initTemplates() {
+  let nodes = [];
+  try { nodes = [...document.querySelectorAll('.skin[data-skin]')]; } catch { return; }
+  nodes.forEach(el => {
+    el.addEventListener('click', () => {
+      const id = el.dataset.skin;
+      const tpl = TEMPLATES.find(item => item.id === id);
+      applyTheme(id, tpl ? `已应用「${tpl.name}」模板，当前页面立即生效。` : '');
+    });
+  });
+}
+
+// ---- 对话队列（Phase-7）----
+// popup 只负责录题与显示：队列本体（发送、等待、推进）活在页面里，
+// 因此这里不复制任何判定逻辑，只按页面回报的快照渲染。
+function queueRowState(state, index) {
+  const status = String(state?.status || 'idle');
+  const current = Number(state?.index || 0);
+  const i = Number(index);
+  if (status === 'done') return 'done';
+  if (i < current) return 'done';
+  if (i === current) return status === 'paused' ? 'paused' : 'current';
+  return 'pending';
+}
+
+function queueMark(state, index) {
+  return { done: '✓', current: '▸', paused: '‖', pending: '·' }[queueRowState(state, index)] || '·';
+}
+
+function renderQueue(state) {
+  if (typeof document === 'undefined') return;
+  const s = state && typeof state === 'object' ? state : null;
+  const items = Array.isArray(s?.items) ? s.items : [];
+  const label = s?.label || '队列为空';
+  const error = s?.error || '';
+
+  const stateEl = $('queue-state');
+  if (stateEl) stateEl.textContent = label;
+  const errorEl = $('queue-error');
+  if (errorEl) { errorEl.textContent = error; errorEl.hidden = !error; }
+
+  // 队列在跑或暂停时收起录题区：此时面板焦点是队列本身（页面侧也拒绝在运行中另起一队）
+  const queueActive = items.length > 0 && s?.status !== 'done';
+  const compose = $('queue-compose');
+  if (compose) compose.hidden = queueActive;
+
+  const pause = $('queue-pause');
+  if (pause) {
+    const paused = s?.status === 'paused';
+    const finished = !items.length || s?.status === 'done';
+    pause.textContent = paused ? '继续' : '暂停';
+    pause.disabled = finished;
+    pause.setAttribute('aria-label', paused ? '继续队列' : '暂停队列');
+  }
+
+  const list = $('queue-list');
+  if (!list) return;
+  // 只在结构变化时重建列表，避免每次广播都把用户的滚动位置打回顶部
+  const signature = [s?.status || 'idle', s?.index || 0, items.length, s?.doneCount || 0, error].join('|');
+  if (list.dataset.signature === signature) return;
+  list.dataset.signature = signature;
+  list.textContent = '';
+  if (!items.length) {
+    const empty = document.createElement('div');
+    empty.className = 'queue-empty';
+    empty.textContent = '队列为空。在上面按行写入问题，点「加入队列并开始」。';
+    list.appendChild(empty);
+    return;
+  }
+  items.forEach((text, i) => {
+    const row = document.createElement('div');
+    row.className = 'queue-item';
+    row.dataset.state = queueRowState(s, i);
+    const mark = document.createElement('span');
+    mark.className = 'queue-mark';
+    mark.textContent = queueMark(s, i);
+    const body = document.createElement('span');
+    body.className = 'queue-item-text';
+    body.textContent = String(text);
+    body.title = String(text);
+    row.append(mark, body);
+    list.appendChild(row);
+  });
+}
+
+// 队列动作的统一回执处理：拿到快照就渲染，拿不到就区分「没开会话」与「页面没响应」
+async function queueAction(msg, okText) {
+  const reply = await notify(msg);
+  if (reply) {
+    renderQueue(reply);
+    try { $('tip').textContent = reply.ok ? okText : (reply.message || '队列操作未完成。'); } catch {}
+    return reply;
+  }
+  const t = await tab();
+  try { $('tip').textContent = t ? '页面没有响应，请刷新页面后重试。' : '请先打开 DeepSeek 会话。'; } catch {}
+  return null;
+}
+
+async function refreshQueue() {
+  renderQueue(await notify({ type: 'DOCDEEP_QUEUE', action: 'get' }));
+}
+
 function paint(s) {
   $('sw').setAttribute('aria-checked', String(s.docdeep_enabled !== false));
   $('ol').setAttribute('aria-checked', String(s.docdeep_outline !== false));
@@ -450,6 +597,7 @@ function paint(s) {
   $('font').value = String(s.docdeep_font);
   $('theme').value = s.docdeep_theme;
   document.documentElement.dataset.theme = (s.docdeep_theme === 'mo') ? 'dark' : 'light'; // 深色分支跟随页面墨色主题
+  paintTemplates(s.docdeep_theme); // 模板卡选中态与下拉保持一致，改任一处两边同步
   $('tip').textContent = (s.docdeep_enabled !== false)
     ? '已启用。关闭后页面即恢复原站，无需刷新。'
     : '已关闭，原站样式已恢复，原功能不受影响。';
@@ -462,6 +610,7 @@ async function load() {
     try { paint({ ...DEFAULTS }); } catch {}
   }
   loadBookmarks();
+  refreshQueue();
   // 历史遗留键清理：已下线功能留下的存储键（备份系列 + 页面心跳快照），老版本存量不留残骸
   try { await chrome.storage.local.remove(['docdeep_history_v1', 'docdeep_backup', 'docdeep_backup_mins', 'docdeep_backup_keep', 'docdeep_heartbeat']); } catch {}
 }
@@ -503,6 +652,7 @@ try {
       DEFAULTS, BOOKMARKS_KEY, SCHEMA_VER, SCHEMA_KEY, BOOKMARKS_MAX, TAG_MAX,
       isDeepSeekUrl, bookmarkId, normalizeBookmarks, migrateBookmarks,
       filterBookmarks, parseImportBookmarks, exportFileDate, buildBookmarksExport, getTagOptions,
+      TEMPLATES, activeTemplate, queueRowState, queueMark,
     };
   }
 } catch {}
@@ -539,10 +689,9 @@ $('format').addEventListener('click', async () => {
   await notify({ type: 'DOCDEEP_SETTINGS', settings: { docdeep_format: on } });
   load();
 });
-[['width', 'docdeep_width', Number], ['font', 'docdeep_font', Number], ['theme', 'docdeep_theme', String]].forEach(([id, key, fn]) => {
+[['width', 'docdeep_width', Number], ['font', 'docdeep_font', Number]].forEach(([id, key, fn]) => {
   $(id).addEventListener('change', async () => {
     const v = fn($(id).value);
-    if (key === 'docdeep_theme') document.documentElement.dataset.theme = (v === 'mo') ? 'dark' : 'light';
     try { await chrome.storage.local.set({ [key]: v }); }
     catch { $('tip').textContent = '本地存储已满或写入失败，仅保留本次显示。'; return; }
     let s = { ...DEFAULTS };
@@ -550,6 +699,8 @@ $('format').addEventListener('click', async () => {
     await notify({ type: 'DOCDEEP_SETTINGS', settings: s });
   });
 });
+// 纸张主题下拉与「模板」卡共用 applyTheme，避免两个入口各写一套逻辑后漂移
+$('theme').addEventListener('change', () => { applyTheme($('theme').value); });
 $('copy').addEventListener('click', async () => {
   const r = await notify({ type: 'DOCDEEP_COPY' });
   $('tip').textContent = r?.ok ? '全文已复制,去笔记里粘贴吧。' : '本页暂无可复制内容,或请先点开对话。';
@@ -576,6 +727,25 @@ $('export-html').addEventListener('click', async () => {
   $('tip').textContent = ok ? '已开始采集，会话较长时页面会显示进度。' : '请先打开 DeepSeek 会话。';
 });
 $('bookmark').addEventListener('click', saveBookmark);
+// 对话队列：录题与启停都发给页面，队列本体不在这里跑
+$('queue-start').addEventListener('click', async () => {
+  const text = $('queue-text').value || '';
+  if (!text.trim()) { $('tip').textContent = '先写点问题，一行一条。'; return; }
+  await queueAction({ type: 'DOCDEEP_QUEUE', action: 'start', text }, '已加入队列，上一条答完会自动发下一条。');
+});
+$('queue-pause').addEventListener('click', async () => {
+  const resuming = $('queue-pause').textContent === '继续';
+  await queueAction({ type: 'DOCDEEP_QUEUE', action: resuming ? 'resume' : 'pause' }, resuming ? '队列已继续。' : '队列已暂停。');
+});
+$('queue-clear').addEventListener('click', async () => {
+  await queueAction({ type: 'DOCDEEP_QUEUE', action: 'clear' }, '队列已清空。');
+});
+// 页面侧的状态广播；popup 没打开时没人接收，页面已吞掉该错误
+try {
+  chrome.runtime.onMessage.addListener((msg) => {
+    if (msg?.type === 'DOCDEEP_QUEUE_STATE') renderQueue(msg.state);
+  });
+} catch {}
 if ($('bookmark-search')) $('bookmark-search').addEventListener('input', () => renderBookmarks());
 if ($('bookmark-tag-filter')) $('bookmark-tag-filter').addEventListener('change', () => renderBookmarks());
 if ($('bookmark-export')) $('bookmark-export').addEventListener('click', exportBookmarks);
@@ -591,8 +761,9 @@ load();
   try { document.addEventListener('DOMContentLoaded', () => {}); } catch {}
 }
 
-// 分区切换与状态提示：任何文档环境都接（扩展面板 / 本地预览）
+// 分区切换、状态提示、模板卡：任何文档环境都接（扩展面板 / 本地预览）
 if (typeof document !== 'undefined') {
   try { initTabs(); } catch {}
   try { initStatusFlash(); } catch {}
+  try { initTemplates(); } catch {}
 }

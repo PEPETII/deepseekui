@@ -1,7 +1,9 @@
-/* DeepSeek 文档化阅读 v0.3 — content.js
+/* deepseek ui v0.3 — content.js
  * 原则: 只打标 + 注入可摘除 UI, 不移动 textarea/form/发送按钮,
  * 不读 token/cookie, 不调私有 API, 不改 fetch。
  * WYSIWYG 是明确例外：textarea 仍保留在原 form 中，但可视输入由本地表面代理并同步回写。
+ * 对话队列(Phase-7)同样复用这条原生发送链路：写回 textarea + 派发 input + 点原生发送按钮，
+ * 不改 fetch、不新开会话、不动路由；队列只存内存，只由用户显式启动。
  * 所有注入节点带 .docdeep-injected, 关闭时完整摘除即恢复原站。
  */
 (() => {
@@ -13,7 +15,7 @@
   const AI_SEL = '.ds-markdown.ds-assistant-message-main-content, .ds-assistant-message-main-content';
   const THINK_SEL = '.ds-thinking, [class*="ds-thinking"], [data-thinking]';
   const USER_COLLAPSE_LEN = 420;
-  const VERSION = '0.3.21';
+  const VERSION = '0.3.26';
   const DEFAULTS = { docdeep_enabled: true, docdeep_width: 880, docdeep_font: 17, docdeep_theme: 'mi', docdeep_outline: true, docdeep_keys: true, docdeep_hide_native: false, docdeep_format: true };
 
   let lastUrl = location.href;
@@ -55,6 +57,12 @@
   let richEditorPositionScheduled = false;
   const RICH_SOURCE_ATTR = 'data-docdeep-rich-source';
   const RICH_EDITOR_ID = 'docdeep-rich-editor';
+  // ---- Phase-7 对话队列：内存态(不落盘), 只由用户显式启动; 关闭扩展/切换会话即中止 ----
+  const QUEUE_PANEL_ID = 'docdeep-queue';
+  let queueState = null;        // DocDeepQueue 的状态对象; null = 未启用
+  let queueTimer = null;        // 采样定时器
+  let queueSentText = '';       // 队列自己写进输入框的最后一条文本, 用于区分「我方残留」与「用户草稿」
+  let queueLastBroadcast = 0;   // 状态广播节流
 
   const isOn = () => document.documentElement.getAttribute(ATTR) === 'on';
 
@@ -129,6 +137,11 @@
       if (outlineComplete) outlineComplete.cancelled = true;
       outlineComplete = null;
       document.removeEventListener('mousedown', keysHelpOutside, true);
+      // Phase-7: 队列随总闸一起停。定时器必须显式清(注入面板随 .docdeep-injected 一并摘除)。
+      stopQueueTimer();
+      queueState = null;
+      queueSentText = '';
+      broadcastQueue(true);
     }
   }
 
@@ -146,6 +159,19 @@
     const clone = el.cloneNode(true);
     clone.querySelectorAll('.' + INJECTED).forEach(n => n.remove());
     return (clone.textContent || '').replace(/\s+/g, ' ').trim();
+  }
+
+  // Q-INFLATE-001: 去嵌套(父 .ds-message 含子 [data-message-id] 时只留最外层),
+  // 否则同一消息被计两次, 翻转/复用时抖动。
+  // classify 与对话队列采样共用这一处口径, 避免两边看到的节点集合不一致。
+  function queryTurns() {
+    const raw = [...document.querySelectorAll(TURN_SEL)];
+    return raw.filter(el => {
+      try {
+        const p = el.parentElement;
+        return !(p && p.closest && p.closest(TURN_SEL));
+      } catch { return true; }
+    });
   }
 
   // Q-INFLATE-001(见 docs/known-issues.md): 新提问后 AI 思考流阶段的 assistant 气泡
@@ -598,6 +624,24 @@
     return current && current.parentElement === root ? current : null;
   }
 
+  // 退化修复：contenteditable 被全选删除后浏览器可能留下「零子节点」容器，
+  // 或把新输入直接写成裸文本节点（不建块）。此时 richBlockElements 返回空数组，
+  // 偏移换算会在 last.childNodes 上抛 undefined，readRichModel 还会把已输入内容当空串丢弃。
+  // 统一把游离内容收进一个块，幂等：已有元素子节点即原样返回。
+  function ensureRichBlocks(editor) {
+    if (!editor || editor.nodeType !== 1) return false;
+    if (editor.children.length) return false;
+    const loose = Array.from(editor.childNodes);
+    const block = document.createElement('div');
+    block.className = INJECTED;
+    block.dataset.docBlock = '1';
+    block.dataset.docBlockKind = 'text';
+    if (loose.length) block.append(...loose);
+    else block.appendChild(document.createElement('br'));
+    editor.appendChild(block);
+    return true;
+  }
+
   function richBlockTextLength(block) {
     if (block?.childNodes?.length === 1 && block.firstChild?.nodeType === 1 && block.firstChild.tagName === 'BR') return 0;
     const measure = (node) => {
@@ -675,7 +719,10 @@
   }
 
   function richPointFromOffset(root, position) {
+    if (!root) return { node: null, offset: 0 };
     const blocks = richBlockElements(root);
+    // 空表面/游离内容：没有块可定位，退回容器本身（调用方 setStart 包了 try/catch）
+    if (!blocks.length) return { node: root, offset: 0 };
     let remaining = Math.max(0, Number(position) || 0);
     for (let i = 0; i < blocks.length; i += 1) {
       const block = blocks[i];
@@ -861,6 +908,7 @@
   function readRichModel(editor) {
     const api = richModel();
     if (!api) return { blocks: [{ kind: 'text', runs: [] }] };
+    ensureRichBlocks(editor);
     const blocks = richBlockElements(editor).map((block) => {
       const tag = block.tagName.toLowerCase();
       const markedKind = block.dataset.docBlockKind;
@@ -963,19 +1011,57 @@
     scheduleRichEditorPosition();
   }
 
-  function nativeComposerSendButton(ta) {
+  // 发送/停止是同一个位置的同一个按钮（生成中会原地变成「停止」）。判定顺序必须是
+  // 「先认停止、再认发送」，否则生成中按 Enter 会点中停止按钮，等于把回答打断。
+  function composerButtonInfo(button) {
+    return {
+      el: button,
+      type: button.type,
+      label: button.getAttribute('aria-label') || '',
+      testid: button.getAttribute('data-testid') || '',
+      title: button.getAttribute('title') || '',
+      disabled: button.disabled === true,
+      ariaDisabled: button.getAttribute('aria-disabled'),
+    };
+  }
+
+  // queue.js 缺失时也要能判（否则宿主脚本会让原生 Enter 发送失效），故保留同语义降级分支。
+  function composerButtonKind(info) {
+    const api = queueApi();
+    if (api?.classifyComposerButton) return api.classifyComposerButton(info);
+    const text = `${info.label} ${info.testid} ${info.title}`.trim();
+    if (text && /停止|中断|interrupt|stop|abort/i.test(text)) return 'stop';
+    if (info.type === 'submit' || (text && /发送|send|submit/i.test(text))) return 'send';
+    return 'other';
+  }
+
+  function composerButtonDisabled(info) {
+    const api = queueApi();
+    if (api?.isDisabled) return api.isDisabled(info);
+    return !!(info.disabled || info.ariaDisabled === true || info.ariaDisabled === 'true');
+  }
+
+  function composerButtons(ta) {
     const form = ta?.closest?.('form');
-    if (!form) return null;
-    const buttons = [...form.querySelectorAll('button')];
-    return buttons.find((button) => {
-      const label = (button.getAttribute('aria-label') || '') + ' ' + (button.getAttribute('data-testid') || '');
-      return button.type === 'submit' || /发送|send/i.test(label);
-    }) || null;
+    return form ? [...form.querySelectorAll('button')].map(composerButtonInfo) : [];
+  }
+
+  function nativeComposerSendButton(ta) {
+    const found = composerButtons(ta).find(info => composerButtonKind(info) === 'send');
+    return found ? found.el : null;
+  }
+
+  // 生成中才存在；用它判断「现在是不是正在回答」以及「回答是不是结束了」。
+  function nativeComposerStopButton(ta) {
+    const found = composerButtons(ta).find(info => composerButtonKind(info) === 'stop');
+    return found ? found.el : null;
   }
 
   function handleRichInput(binding) {
     const api = richModel();
     if (!api || !binding?.editor || binding.composing) return;
+    // 先归位游离内容，再读选区，保证第一次按键后的偏移量就已经落在块内
+    ensureRichBlocks(binding.editor);
     clearRichHistory(binding);
     const selection = readRichSelection(binding);
     const pending = binding.pendingMark && binding.pendingStart != null ? {
@@ -1745,6 +1831,298 @@
     else setTimeout(run, 0);
   }
 
+  // ================= Phase-7 对话队列 =================
+  // 一次提交多条消息, 上一条答完自动发下一条; 语义 = 同一会话内连续追问。
+  // 「答完了」用三信号与门判定: 停止语义按钮消失 + 整条 turn 文本静默 + 未超看门狗。
+  // 采样必须取整条 turn 的 textContent(含 .ds-think-content): 只取正文的话, 深度思考
+  // 阶段正文不动会被误判为已完成, 下一条就会挤进还没答完的回复里。
+  // 阈值集中在 queue.js 的 TUNING, 判定逻辑集中在 reduceQueue, 这里只做 DOM 适配。
+  const queueApi = () => globalThis.DocDeepQueue || null;
+
+  function isConversationUrl(url) {
+    return /\/(?:a\/)?chat\/s\/[^/?#]+/.test(String(url || ''));
+  }
+
+  // 唯一不算「用户换会话」的地址变化: 刚在无会话页发出第一条消息, 站点随即把地址变成会话地址。
+  // 其余任何地址变化都视为切换会话, 队列必须停, 否则会把后续消息发进另一个对话。
+  function urlChangeIsOurSend(previousUrl, nextUrl) {
+    if (!queueState) return false;
+    if (queueState.phase !== 'await' && queueState.phase !== 'stream') return false;
+    return !isConversationUrl(previousUrl) && isConversationUrl(nextUrl);
+  }
+
+  function stopQueueTimer() {
+    if (queueTimer != null) {
+      clearTimeout(queueTimer);
+      queueTimer = null;
+    }
+  }
+
+  function assistantTurnSample() {
+    let count = 0;
+    let last = null;
+    queryTurns().forEach(el => {
+      const role = el.getAttribute('data-docrole') || (isAssistantStructure(el) ? 'assistant' : 'user');
+      if (role !== 'assistant') return;
+      count += 1;
+      last = el;
+    });
+    return { count, last };
+  }
+
+  function sampleQueueProgress() {
+    const sample = assistantTurnSample();
+    return {
+      hasStop: !!nativeComposerStopButton(nativeComposerTextarea()),
+      textLen: sample.last ? String(sample.last.textContent || '').length : 0,
+      turnCount: sample.count,
+    };
+  }
+
+  function queueSnapshot() {
+    const api = queueApi();
+    if (!queueState || !queueState.items.length) {
+      return { status: 'idle', phase: 'idle', index: 0, total: 0, doneCount: 0, items: [], label: '队列为空', error: '' };
+    }
+    return {
+      status: queueState.status,
+      phase: queueState.phase,
+      index: queueState.index,
+      total: queueState.items.length,
+      doneCount: queueState.doneCount,
+      items: queueState.items.slice(),
+      label: api ? api.queueStatusText(queueState) : '',
+      error: api ? api.queueErrorText(queueState) : '',
+    };
+  }
+
+  function ensureQueuePanel() {
+    const dock = ensureDock();
+    let panel = dock.querySelector('#' + QUEUE_PANEL_ID);
+    if (panel) return panel;
+    panel = document.createElement('div');
+    panel.id = QUEUE_PANEL_ID;
+    panel.className = INJECTED;
+    panel.setAttribute('role', 'status');
+    panel.setAttribute('aria-live', 'polite');
+
+    const head = document.createElement('div');
+    head.className = 'doc-queue-head ' + INJECTED;
+    const title = document.createElement('span');
+    title.className = 'doc-queue-title ' + INJECTED;
+    const pause = document.createElement('button');
+    pause.type = 'button';
+    pause.className = 'doc-queue-pause ' + INJECTED;
+    pause.addEventListener('click', () => {
+      const api = queueApi();
+      if (!api || !queueState) return;
+      queueDispatch({ type: queueState.status === api.STATUS.PAUSED ? 'RESUME' : 'PAUSE', reason: 'user' });
+    });
+    const clear = document.createElement('button');
+    clear.type = 'button';
+    clear.className = 'doc-queue-clear ' + INJECTED;
+    clear.textContent = '清空';
+    clear.title = '清空队列并停止';
+    clear.setAttribute('aria-label', '清空队列');
+    clear.addEventListener('click', () => queueDispatch({ type: 'CLEAR' }));
+    head.append(title, pause, clear);
+
+    const list = document.createElement('ol');
+    list.className = 'doc-queue-list ' + INJECTED;
+    const note = document.createElement('div');
+    note.className = 'doc-queue-note ' + INJECTED;
+    note.hidden = true;
+
+    panel.append(head, list, note);
+    // 队列面板排在工具条上方: 运行中它是主要操作对象, 不该被压在栈底。
+    const tools = dock.querySelector('#docdeep-tools');
+    if (tools) dock.insertBefore(panel, tools);
+    else dock.appendChild(panel);
+    return panel;
+  }
+
+  function paintQueuePanel() {
+    let panel = document.querySelector('#' + QUEUE_PANEL_ID);
+    if (!queueState || !queueState.items.length || !isOn()) {
+      panel?.remove();
+      return;
+    }
+    const api = queueApi();
+    if (!api) return;
+    panel = panel || ensureQueuePanel();
+
+    const status = api.queueStatusText(queueState);
+    const title = panel.querySelector('.doc-queue-title');
+    if (title.textContent !== status) title.textContent = status;
+
+    const finished = queueState.status === api.STATUS.DONE;
+    const paused = queueState.status === api.STATUS.PAUSED;
+    const pause = panel.querySelector('.doc-queue-pause');
+    const pauseLabel = finished ? '已完成' : paused ? '继续' : '暂停';
+    if (pause.textContent !== pauseLabel) pause.textContent = pauseLabel;
+    pause.disabled = finished;
+    pause.setAttribute('aria-label', finished ? '队列已完成' : paused ? '继续队列' : '暂停队列');
+
+    const error = api.queueErrorText(queueState);
+    const note = panel.querySelector('.doc-queue-note');
+    if (note.textContent !== error) note.textContent = error;
+    note.hidden = !error;
+    panel.dataset.state = queueState.status;
+
+    // 条目列表只在结构变化时重建: 每 tick 重建会打断滚动、也浪费 DOM churn。
+    const signature = [queueState.status, queueState.index, queueState.doneCount, queueState.items.length, error].join('|');
+    if (panel.dataset.signature === signature) return;
+    panel.dataset.signature = signature;
+
+    const list = panel.querySelector('.doc-queue-list');
+    list.textContent = '';
+    queueState.items.slice(0, api.QUEUE_MAX).forEach((text, i) => {
+      const state = queueState.status === api.STATUS.DONE || i < queueState.index
+        ? 'done'
+        : i === queueState.index ? (paused ? 'paused' : 'current') : 'pending';
+      const li = document.createElement('li');
+      li.className = 'doc-queue-item ' + INJECTED;
+      li.dataset.state = state;
+      const mark = document.createElement('span');
+      mark.className = 'doc-queue-mark ' + INJECTED;
+      mark.textContent = { done: '✓', current: '▸', paused: '‖', pending: '·' }[state];
+      const body = document.createElement('span');
+      body.className = 'doc-queue-text ' + INJECTED;
+      body.textContent = text;
+      body.title = text;
+      li.append(mark, body);
+      list.appendChild(li);
+    });
+  }
+
+  function broadcastQueue(force = false) {
+    const now = Date.now();
+    if (!force && now - queueLastBroadcast < 500) return;
+    queueLastBroadcast = now;
+    try {
+      const pending = chrome.runtime.sendMessage({ type: 'DOCDEEP_QUEUE_STATE', state: queueSnapshot() });
+      if (pending?.catch) pending.catch(() => {});
+    } catch {}
+  }
+
+  // effect 只声明「该做什么」, 后续事件交回 queueDispatch 迭代处理 ——
+  // 不在执行 effect 的中间嵌套派发, 避免状态被写花。
+  function runQueueEffect(effect) {
+    if (!effect) return null;
+    if (effect.type === 'toast') { toast(effect.text); return null; }
+    if (effect.type === 'send') return queueSendCurrent();
+    return null;
+  }
+
+  // 与 WYSIWYG 同一条发送路径: 写回原生 textarea + 派发冒泡 input(富文本表面的 input 监听
+  // 会把内容同步回编辑器, 所以可视区不会显示上一条) + 点原生发送按钮。不碰 fetch, 不调私有 API。
+  function sendComposerText(text) {
+    if (!isOn()) return { ok: false, reason: 'off', message: '扩展已关闭，队列已停止' };
+    if (exportState || outlineComplete) return { ok: false, reason: 'busy', message: '导出或补全正在运行，队列已暂停' };
+    const ta = nativeComposerTextarea();
+    if (!ta || !ta.isConnected) return { ok: false, reason: 'no-input', message: '没找到输入框，队列已暂停' };
+    if (nativeComposerStopButton(ta)) return { ok: false, reason: 'generating', message: '页面正在生成回答，队列已暂停' };
+    const current = String(ta.value || '');
+    // 只放过「我方自己刚写进去的残留」; 用户手打的草稿绝不能被覆盖。
+    if (current.trim() && current !== queueSentText) {
+      return { ok: false, reason: 'draft', message: '输入框里有未发送的草稿，先处理它再继续队列' };
+    }
+    if (!nativeComposerSendButton(ta)) return { ok: false, reason: 'send-noop', message: '没找到发送按钮，队列已暂停' };
+
+    ta.value = text;
+    dispatchTextareaInput(ta, text);
+
+    // 按钮可用性要在写入之后再看: 部分实现按内容长度启用按钮。
+    const button = nativeComposerSendButton(ta);
+    if (!button) return { ok: false, reason: 'send-noop', message: '写入后发送按钮消失，队列已暂停' };
+    const info = composerButtonInfo(button);
+    if (composerButtonKind(info) === 'stop') return { ok: false, reason: 'generating', message: '页面正在生成回答，队列已暂停' };
+    if (composerButtonDisabled(info)) return { ok: false, reason: 'send-noop', message: '发送按钮当前不可用，队列已暂停' };
+    try { button.click(); } catch { return { ok: false, reason: 'send-noop', message: '发送按钮点击失败，队列已暂停' }; }
+    return { ok: true };
+  }
+
+  function queueSendCurrent() {
+    const text = queueState?.items?.[queueState.index] || '';
+    if (!text) return { type: 'FAIL', reason: 'empty', message: '队列里没有可发送的内容' };
+    const before = sampleQueueProgress();
+    const result = sendComposerText(text);
+    if (!result.ok) return { type: 'FAIL', reason: result.reason, message: result.message };
+    queueSentText = text;
+    return { type: 'SENT', turnCount: before.turnCount };
+  }
+
+  function scheduleQueueTick() {
+    const api = queueApi();
+    if (!api || queueTimer != null) return;
+    queueTimer = setTimeout(() => { queueTimer = null; queueTick(); }, api.TUNING.pollMs);
+  }
+
+  function queueDispatch(event) {
+    const api = queueApi();
+    if (!api || !queueState || !event) return false;
+    const pending = [event];
+    let guard = 0;
+    while (pending.length && guard < 16) {
+      guard += 1;
+      const current = pending.shift();
+      const result = api.reduceQueue(queueState, { ...current, now: Date.now() });
+      queueState = result.state;
+      result.effects.forEach((effect) => {
+        const follow = runQueueEffect(effect);
+        if (follow) pending.push(follow);
+      });
+    }
+    paintQueuePanel();
+    broadcastQueue();
+    if (queueState.status === api.STATUS.RUNNING) scheduleQueueTick();
+    else stopQueueTimer();
+    return true;
+  }
+
+  function queueTick() {
+    if (!queueState) return;
+    if (!isOn()) { queueDispatch({ type: 'ABORT', reason: 'off' }); return; }
+    queueDispatch({ type: 'SAMPLE', ...sampleQueueProgress() });
+  }
+
+  function queueReply(extra) {
+    const snapshot = queueSnapshot();
+    const reply = { ...(extra || {}), ...snapshot };
+    if (snapshot.status === 'paused' && snapshot.error) {
+      reply.ok = false;
+      reply.reason = queueState?.lastError || 'paused';
+      reply.message = snapshot.error;
+    } else if (reply.ok === undefined) {
+      reply.ok = true;
+    }
+    return reply;
+  }
+
+  function handleQueueMessage(msg) {
+    const api = queueApi();
+    if (!api) return { ok: false, reason: 'nolib', message: '队列模块未加载，请重新加载扩展' };
+    const action = String(msg?.action || 'get');
+    if (action === 'start') {
+      if (!isOn()) return { ok: false, reason: 'off', message: '请先启用 deepseek ui', ...queueSnapshot() };
+      if (queueState?.items?.length && queueState.status === api.STATUS.RUNNING) {
+        return { ok: false, reason: 'running', message: '队列正在运行，先暂停或清空再提交新的', ...queueSnapshot() };
+      }
+      const parsed = api.parseQueueText(msg?.text || '');
+      if (!parsed.items.length) {
+        return { ok: false, reason: 'empty', message: parsed.reason || '没有可用的消息', ...queueSnapshot() };
+      }
+      queueSentText = '';
+      queueState = api.initialQueueState(parsed.items);
+      queueDispatch({ type: 'START' });
+      return queueReply({ count: parsed.items.length, skipped: parsed.skipped, note: parsed.reason });
+    }
+    if (action === 'pause') { queueDispatch({ type: 'PAUSE', reason: 'user' }); return queueReply({}); }
+    if (action === 'resume') { queueDispatch({ type: 'RESUME' }); return queueReply({}); }
+    if (action === 'clear') { queueDispatch({ type: 'CLEAR' }); return queueReply({}); }
+    return queueReply({});
+  }
+
   function ensureTools() {
     if (document.querySelector('#docdeep-tools')) return;
     const bar = document.createElement('div');
@@ -1757,11 +2135,6 @@
     tools.textContent = '回到顶部';
     tools.title = '回到会话开头';
     tools.addEventListener('click', scrollTop);
-    const copy = document.createElement('button');
-    copy.type = 'button';
-    copy.textContent = '复制全文';
-    copy.title = '复制当前会话全文为 Markdown';
-    copy.addEventListener('click', () => copyFull().then(ok => toast(ok ? '全文已复制,可粘贴到笔记' : '复制失败,请手动选择复制')));
     const find = document.createElement('button');
     find.type = 'button';
     find.textContent = '查找';
@@ -1772,12 +2145,7 @@
     outline.textContent = '目录';
     outline.title = '显示 / 隐藏右侧大纲';
     outline.addEventListener('click', toggleOutlinePanel);
-    const print = document.createElement('button');
-    print.type = 'button';
-    print.textContent = '打印';
-    print.title = '打印或另存为 PDF';
-    print.addEventListener('click', () => window.print());
-    mainRow.append(tools, copy, find, outline, print);
+    mainRow.append(tools, find, outline);
     bar.append(mainRow);
 
     const meta = document.createElement('div');
@@ -1785,7 +2153,7 @@
     const ver = document.createElement('span');
     ver.id = 'docdeep-ver';
     ver.className = INJECTED;
-    ver.textContent = '文档化 v' + VERSION;
+    ver.textContent = 'deepseek ui v' + VERSION;
     ver.title = '扩展内容脚本版本(对不上 popup 版本即需重载扩展)';
     const count = document.createElement('span');
     count.id = 'docdeep-count';
@@ -2569,6 +2937,11 @@
       toast('已有导出任务正在进行');
       return false;
     }
+    // Phase-7: 导出采集要滚动整篇, 与队列同时跑会互相抢页面, 互相让路
+    if (queueState?.status === 'running') {
+      toast('队列运行中，先暂停或清空再导出');
+      return false;
+    }
     // Phase-3: 选中导出(MD/HTML 共用同一 onlySelected 链路,JSON 保持全量语义由调用方决定);空选中给人话并中止
     const onlySelected = !!opts.onlySelected;
     if (onlySelected && selectedQKeys !== null && selectedQKeys.size === 0) {
@@ -3328,6 +3701,7 @@
   async function completeOutline() {
     if (outlineComplete) { outlineComplete.cancelled = true; return; }
     if (exportState) { toast('导出采集中，稍后再补全'); return; }
+    if (queueState?.status === 'running') { toast('队列运行中，先暂停或清空再补全'); return; }
     if (!isOn()) return;
     outlineSearchToken++;
     const token = { cancelled: false };
@@ -3498,6 +3872,7 @@
     const urlChanged = location.href !== lastUrl;
     if (urlChanged) {
       removeFormattingToolbar();
+      const previousUrl = lastUrl;
       lastUrl = location.href;
       qOrder = [];
       qInfo = new Map();
@@ -3507,21 +3882,19 @@
       outlineDirty = true;
       // Phase-3: 选中态与 qOrder 同命,URL 切换即清空
       selectedQKeys = null;
+      // Phase-7: 队列不跨会话。唯一例外是「刚发出的第一条消息让站点把无会话地址变成会话地址」——
+      // 那是站点接收我们这条消息的结果,不是用户换会话,此时必须继续跑完队列。
+      if (queueState?.items?.length && !urlChangeIsOurSend(previousUrl, lastUrl)) {
+        queueDispatch({ type: 'ABORT', reason: 'url-changed' });
+      }
     }
     probeShell();
     applyNativeNavHide(); // NATIVE-NAV-HIDE-001: 容器重挂后每轮重打标(探测 5s 缓存)
     try { document.querySelectorAll('.doc-search').forEach(n => n.remove()); } catch {}
     ensureTools();
     ensureFormattingToolbar();
-    // Q-INFLATE-001: 去嵌套(父 .ds-message 含子 [data-message-id] 时只留最外层),
-    // 否则同一消息被计两次, 翻转/复用时抖动。
-    const rawTurns = [...document.querySelectorAll(TURN_SEL)];
-    const turns = rawTurns.filter(el => {
-      try {
-        const p = el.parentElement;
-        return !(p && p.closest && p.closest(TURN_SEL));
-      } catch { return true; }
-    });
+    // Q-INFLATE-001: 去嵌套在 queryTurns() 内统一处理(classify 与队列采样共用同一口径)
+    const turns = queryTurns();
     let turnChanged = false;
     turns.forEach(el => {
       const text = turnText(el);
@@ -3647,6 +4020,11 @@
     if (msg?.type === 'DOCDEEP_FIND') openFind();
     if (msg?.type === 'DOCDEEP_PRINT') window.print();
     if (msg?.type === 'DOCDEEP_COPY') { copyFull().then(ok => send({ ok })); return true; }
+    if (msg?.type === 'DOCDEEP_QUEUE') {
+      // 队列是内存态, popup 每次打开都靠这一次拉取/回执拿快照, 之后靠 DOCDEEP_QUEUE_STATE 广播。
+      send(handleQueueMessage(msg));
+      return true;
+    }
     if (msg?.type === 'DOCDEEP_EXPORT') {
       const f = msg.format === 'json' ? 'json' : msg.format === 'html' ? 'html' : 'md';
       exportConversation(f, { onlySelected: !!msg.onlySelected });
