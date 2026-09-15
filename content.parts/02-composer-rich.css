@@ -1,0 +1,189 @@
+/* ---------- 写作区：文档底部指令栏 ---------- */
+html[data-docdeep="on"] textarea {
+  box-sizing: border-box !important;
+  font-size: 15px !important; line-height: 1.7 !important;
+  color: var(--dd-text) !important;
+  caret-color: var(--dd-brand) !important;
+  border-radius: var(--dd-radius-lg) !important;
+}
+html[data-docdeep="on"] textarea::placeholder { color: var(--dd-muted) !important; }
+html[data-docdeep="on"] body textarea:only-child,
+html[data-docdeep="on"] body form:has(textarea) {
+  max-width: var(--doc-paper-w) !important;
+  margin-left: auto !important; margin-right: auto !important;
+}
+html[data-docdeep="on"] body form:has(textarea) {
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+html[data-docdeep="on"] form:has(textarea) {
+  background: var(--dd-surface) !important;
+  border: 1px solid var(--dd-line) !important;
+  border-radius: var(--dd-radius-lg) !important;
+  box-shadow: var(--dd-shadow) !important;
+  color: var(--dd-text) !important;
+  padding: 12px 14px 10px !important;
+}
+/* 多行文本框：无边框，聚焦时左侧浮现一条 2px 强调色竖线（标志性细节） */
+html[data-docdeep="on"] body form:has(textarea) textarea {
+  background: var(--dd-surface-2) !important;
+  border: none !important;
+  border-left: 2px solid transparent !important;
+  border-radius: var(--dd-radius) !important;
+  box-shadow: none !important;
+  outline: none !important;
+  padding: 8px 12px !important;
+  transition: background-color var(--dd-dur-base) var(--dd-ease), border-color var(--dd-dur-base) var(--dd-ease), padding var(--dd-dur-base) var(--dd-ease);
+}
+html[data-docdeep="on"] body form:has(textarea) textarea:hover {
+  background: var(--dd-hover-tint) !important;
+}
+html[data-docdeep="on"] body form:has(textarea) textarea:focus {
+  background: var(--dd-surface-2) !important;
+  border-left-color: var(--dd-brand) !important;
+  padding-left: 14px !important;
+}
+html[data-docdeep="on"] body form:has(textarea):focus-within {
+  border-color: var(--dd-line-strong) !important;
+  box-shadow: 0 0 0 3px var(--dd-accent-soft), var(--dd-shadow-soft) !important;
+}
+html[data-docdeep="on"] form:has(textarea) :where(button) {
+  box-sizing: border-box !important;
+  border-radius: var(--dd-radius-sm) !important;
+  transition: background-color var(--dd-dur-fast) var(--dd-ease), border-color var(--dd-dur-fast) var(--dd-ease), color var(--dd-dur-fast) var(--dd-ease), box-shadow var(--dd-dur-fast) var(--dd-ease);
+}
+html[data-docdeep="on"] form:has(textarea) :where(button):hover {
+  background: var(--dd-hover) !important;
+  border-color: var(--dd-line-strong) !important;
+}
+html[data-docdeep="on"] form:has(textarea) :where(button):focus-visible {
+  outline: 2px solid var(--dd-line-strong) !important;
+  outline-offset: 2px !important;
+}
+html[data-docdeep="on"] form:has(textarea) button[type="submit"],
+html[data-docdeep="on"] form:has(textarea) button[aria-label*="发送"],
+html[data-docdeep="on"] form:has(textarea) button[aria-label*="Send"],
+html[data-docdeep="on"] form:has(textarea) button[data-testid*="send"],
+html[data-docdeep="on"] form:has(textarea) button:last-child {
+  background: var(--dd-btn-primary) !important;
+  border: 1px solid var(--dd-btn-primary) !important;
+  border-radius: var(--dd-radius) !important;
+  color: var(--dd-btn-primary-ink) !important;
+  box-shadow: var(--dd-shadow-soft) !important;
+}
+html[data-docdeep="on"] form:has(textarea) button[type="submit"]:hover,
+html[data-docdeep="on"] form:has(textarea) button[aria-label*="发送"]:hover,
+html[data-docdeep="on"] form:has(textarea) button[aria-label*="Send"]:hover,
+html[data-docdeep="on"] form:has(textarea) button[data-testid*="send"]:hover,
+html[data-docdeep="on"] form:has(textarea) button:last-child:hover {
+  background: var(--dd-btn-primary-hover) !important;
+  border-color: var(--dd-btn-primary-hover) !important;
+}
+html[data-docdeep="on"] form:has(textarea) button:disabled,
+html[data-docdeep="on"] form:has(textarea) button[aria-disabled="true"] {
+  background: var(--dd-surface-sunken) !important;
+  border-color: var(--dd-line) !important;
+  box-shadow: none !important;
+  color: var(--dd-muted) !important;
+  cursor: not-allowed !important;
+  opacity: .6 !important;
+}
+
+/* ---------- 富文本编辑表面：固定覆盖原生 textarea，不改变 form 节点树 ---------- */
+/* textarea 保留原尺寸、name、form 归属和发送底层；可视文字由 body 下的 contenteditable 表面承载。 */
+/* 背景仍由 textarea 自己绘制：表面必须保持透明，否则 DeepSeek 挂在输入框下层的
+   原生悬浮提示会被不透明表面整块盖住（表面 z-index 恒高于一切站点浮层）。 */
+html[data-docdeep="on"] textarea[data-docdeep-rich-source="1"] {
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+  caret-color: transparent !important;
+  border-color: transparent !important;
+  pointer-events: none !important;
+  user-select: none !important;
+}
+html[data-docdeep="on"] textarea[data-docdeep-rich-source="1"]::placeholder {
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+}
+html[data-docdeep="on"] #docdeep-rich-editor {
+  position: fixed;
+  z-index: 2147483000;
+  box-sizing: border-box;
+  overflow: auto;
+  /* 背景必须透明：可见底色由底层 textarea 自己画（含圆角），表面只承载文字与光标。
+     这样压在表面下层的站点原生悬浮提示能直接透出，不再被整块遮挡。 */
+  background: transparent;
+  /* 左内边距吸收原先那 2px 透明边框：文本起始位置与原生输入框保持一致，
+     同时不再有「聚焦即浮现赤陶竖线」的反馈——它在选中文字弹出格式工具栏时
+     会被误读成一条多余竖栏/滑动条，使输入栏外观偏离未聚焦时的常态。
+     方框两侧由 JS 内收 5px，这里的左 9px（=14-5）/ 右 17px（=12+5）把内收量
+     补回来，文字起点仍与原生输入框对齐。 */
+  padding: 8px 17px 8px 9px;
+  border: 0;
+  border-radius: var(--dd-radius) !important;
+  outline: none;
+  color: var(--dd-text);
+  caret-color: var(--dd-brand);
+  font: 15px/1.7 var(--dd-font);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  user-select: text;
+  cursor: text;
+  /* 滚动只由编辑器自身承担，但滚动条一律不绘制也不占位：否则内容一多，
+     原生输入栏右侧就会凭空多出一条 15px 系统滚动条，并把正文宽度压窄 15px。 */
+  scrollbar-width: none;
+}
+html[data-docdeep="on"] #docdeep-rich-editor::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+html[data-docdeep="on"] #docdeep-rich-editor[hidden] { display: none !important; }
+html[data-docdeep="on"] #docdeep-rich-editor[data-docdeep-empty="true"]::before {
+  content: attr(data-docdeep-placeholder);
+  color: var(--dd-muted);
+  pointer-events: none;
+}
+html[data-docdeep="on"] #docdeep-rich-editor [data-doc-block="1"] {
+  min-height: 1.7em;
+  margin: 0;
+}
+html[data-docdeep="on"] #docdeep-rich-editor [data-doc-block-kind="h1"] {
+  font-size: 1.45em;
+  font-weight: 750;
+}
+html[data-docdeep="on"] #docdeep-rich-editor [data-doc-block-kind="h2"] {
+  font-size: 1.25em;
+  font-weight: 700;
+}
+html[data-docdeep="on"] #docdeep-rich-editor [data-doc-block-kind="h3"] {
+  font-size: 1.1em;
+  font-weight: 700;
+}
+html[data-docdeep="on"] #docdeep-rich-editor [data-doc-block-kind="unordered"]::before {
+  content: "• ";
+  color: var(--dd-brand);
+}
+html[data-docdeep="on"] #docdeep-rich-editor {
+  counter-reset: docdeep-rich-ordered;
+}
+html[data-docdeep="on"] #docdeep-rich-editor [data-doc-block-kind="ordered"] {
+  counter-increment: docdeep-rich-ordered;
+}
+html[data-docdeep="on"] #docdeep-rich-editor [data-doc-block-kind="ordered"]::before {
+  content: counter(docdeep-rich-ordered) ". ";
+  color: var(--dd-brand);
+}
+html[data-docdeep="on"] #docdeep-rich-editor strong { font-weight: 750; }
+html[data-docdeep="on"] #docdeep-rich-editor code {
+  padding: .05em .25em;
+  border-radius: var(--dd-radius-sm);
+  background: var(--dd-surface-sunken);
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: .92em;
+}
+html[data-docdeep="on"] #docdeep-rich-editor a {
+  color: var(--dd-brand-strong);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}

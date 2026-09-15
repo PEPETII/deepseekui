@@ -1,0 +1,89 @@
+/* ============ v0.3-ui 注入组件：统一走 --dd-* 令牌 ============ */
+
+/* ---------- 右下悬浮栈：查找面板在上，工具条在下 ---------- */
+html[data-docdeep="on"] #docdeep-dock {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: var(--dd-z);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  max-width: min(460px, calc(100vw - 32px));
+  pointer-events: none;
+}
+html[data-docdeep="on"] #docdeep-dock > * { pointer-events: auto; }
+
+html[data-docdeep="on"] #docdeep-tools {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  padding: 8px;
+  background: var(--dd-surface);
+  border: 1px solid var(--dd-line);
+  border-radius: var(--dd-radius-lg);
+  box-shadow: var(--dd-shadow);
+  font-family: var(--dd-font);
+  max-width: 100%;
+  /* 操作栏默认半透明，鼠标悬停容器时才点亮为不透明（标志性细节） */
+  opacity: .55;
+  transition: opacity var(--dd-dur-base) var(--dd-ease);
+}
+html[data-docdeep="on"] #docdeep-dock:hover #docdeep-tools { opacity: 1; }
+html[data-docdeep="on"] #docdeep-tools .doc-tools-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+html[data-docdeep="on"] #docdeep-tools button {
+  border: 1px solid var(--dd-line);
+  background: var(--dd-surface-2);
+  color: var(--dd-text-2);
+  border-radius: var(--dd-radius-sm);
+  font-size: 12px;
+  line-height: 1;
+  padding: 7px 11px;
+  cursor: pointer;
+  font-family: var(--dd-font);
+  white-space: nowrap;
+  transition: background-color var(--dd-dur-fast) var(--dd-ease), border-color var(--dd-dur-fast) var(--dd-ease), color var(--dd-dur-fast) var(--dd-ease);
+}
+html[data-docdeep="on"] #docdeep-tools button:hover {
+  border-color: var(--dd-line-strong);
+  background: var(--dd-hover);
+  color: var(--dd-text);
+}
+html[data-docdeep="on"] #docdeep-tools button:active { transform: translateY(.5px); }
+html[data-docdeep="on"] #docdeep-tools button:focus-visible {
+  outline: 2px solid var(--dd-line-strong);
+  outline-offset: 2px;
+}
+html[data-docdeep="on"] #docdeep-tools .doc-tools-meta {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 2px;
+  font-size: 11px;
+  color: var(--dd-muted);
+}
+html[data-docdeep="on"] #docdeep-ver {
+  font-size: 10px;
+  color: var(--dd-muted);
+  white-space: nowrap;
+  letter-spacing: .02em;
+}
+html[data-docdeep="on"] #docdeep-count {
+  flex: none;
+  font-size: 11px;
+  color: var(--dd-text-2);
+  background: var(--dd-surface-sunken);
+  border: 1px solid var(--dd-line);
+  border-radius: 999px;
+  padding: 1px 9px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}

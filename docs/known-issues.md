@@ -195,3 +195,41 @@
 - 回归：`node --check` 通过；既有单测 44/44 通过；jsdom 抽取真实函数跑 13/13 —— 含
   「旧实现复现上述报错」「正常多块编辑器 0..10 偏移与修复前逐点一致」「ensureRichBlocks 幂等」。
   真实 DeepSeek 页面的实机确认仍待用户补测。
+
+## THINK-SEL-001 `THINK_SEL` / `tagThink` 线上从未生效（2026-09-15 发现，未清理）
+
+- 现象：思考折叠按钮「思考过程(已折叠,点击展开)」在真实会话里从不出现；扩展对思考区等于零干预。
+- 根因：`content.parts/00-runtime.js` 的 `THINK_SEL = '.ds-thinking, [class*="ds-thinking"], [data-thinking]'`
+  与站点实际结构不符。线上核验（`fe-static.deepseek.com/chat/static/main.3208e09460.css` +
+  `main.9199a2404f.js`）：**站点不存在 `ds-thinking` 类名，也不存在 `data-thinking` 属性**（main.js 中两者计数均为 0），
+  思考正文容器的真实类名是 **`.ds-think-content`**（内含 `.ds-markdown`）。
+- 影响：`tagThink()`（`content.parts/01-turns.js`）注入的按钮、`.ds-thinking-inner` 两行截断、
+  `doc-think-collapsed`、`data-doc-think-done` 全为死代码；`isAssistantStructure()` 的 THINK 防护分支同样失效
+  （`Q-INFLATE-001` 目前由 `AI_SEL` 判定 + `pruneBogusQuestions` 赝文本清理兜住，故未再复发）。
+- 站点侧事实：思考/联网搜索/工具片段同处可折叠区（容器 `.ds-collapsible-text`，`max-height` 由 JS 内联控制），
+  标题取自 i18n 键 `messageThinking` / `messageThinkDuration[Plural]` / `messageThinkStopped`；
+  WIP 且无回答正文时标题为「思考中」且区域展开，回答正文开始输出后切「已思考（用时 N 秒）」并折叠。
+- 处理：v0.3.35「隐藏思考正文」改用 `.ds-think-content` + `data-doc-hidethink` 开关实现，未顺手删除死链路
+  （删除属破坏性改动，需另开工单）。可复用手法见 `docs/界面配色覆盖审计-2026-09-11.md` 的抓取流程。
+
+## FORM-ASSUME-001 站点 composer 无 `form`，25 条 `form:has(textarea)` 规则线上失效（2026-09-15 发现，未清理）
+
+- 现象：输入框卡片视觉（主题表面色 / 边框 / 圆角 / 阴影）、发送按钮主题色、聚焦态 `:focus-within`、打印隐藏输入区等均未生效，
+  站点输入区保持原样。属 **静默失效**——不报错、不降级、不影响功能，故长期未被发现。
+- 根因：扩展自 Phase-5 起假设「站点输入区在 `<form>` 内」，规则一律写成 `form:has(textarea) …`。
+  线上核验（`fe-static.deepseek.com/chat/static/main.9199a2404f.js`，commit `e76f2210`）：**bundle 内 `"form"` 字面量计数为 0**，
+  首页 HTML 亦无 `<form>` → 规则永不匹配。JS 侧 `content.parts/05-markdown-formatting.js:nativeComposerTextarea()` 的
+  `candidates.find(ta => ta.closest('form'))` 同样恒为空（靠末尾 `|| candidates[0]` 兜底才选对 textarea）。
+- 受影响：`content.parts/02-composer-rich.css`（22 条）、`content.parts/04-shell.css`（2 条）、`content.parts/09-responsive-print.css`（1 条），共 25 条。
+- 同源的第二处错误假设（v0.3.37 已绕开、未清理）：**站点发送按钮不是 `<button>`**。DS Button 组件定义为
+  `jsxs(k || "div", { ...Q, role: "button", className: "ds-button ds-button--…" })`，输入区主按钮为
+  `jsx(tx.$, { shape: "circle", icon: 发送/停止图标, disabled: s, onClick })` → 渲染为 `div[role="button"].ds-button--circle`；
+  且无 `aria-label`、无 `data-testid`（字面量计数 0）、无 `title`，disabled 用类名 `ds-button--disabled` + `tabIndex=-1` 表达。
+  → `content.parts/04-rich-editor.js:composerButtons()` 的 `form.querySelectorAll('button')` 与 `composerButtonKind()` 的语义判定**在线上双重失效**。
+- 已生效的部分：v0.3.37 把富文本表面的 Enter 改为转发给原生 `textarea`（不再依赖上述两条假设），
+  旧的按钮查找路径降级为回退保留。见 `docs/完成报告/Enter发送转发-完成报告.md`。
+- 处理：**未清理**。修正 CSS 需把选择器锚点从 `form:has(textarea)` 换到真实容器，而站点该层只有构建哈希类名（无稳定锚点），
+  需先实测确定可用锚点（候选：`textarea[data-docdeep-rich-source]` 的祖先链、或 `<textarea>` 自身的兄弟组合），
+  涉及三份 CSS 与打印样式，属独立视觉缺陷链，需另开工单。
+- 可复用核验手法：抓 `main.<hash>.{js,css}` 后用 node 正则探针反查，**存在性判定最有效**
+  （例：`(src.match(/"form"/g) || []).length === 0` → 该结构不存在）；流程见 `docdeep-popup-verify` 技能 Step 0。

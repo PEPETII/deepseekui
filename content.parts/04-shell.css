@@ -1,0 +1,140 @@
+/* ---------- 左侧会话栏：纳入文档工作台 ---------- */
+/* 只接管视觉、盒模型和滚动反馈；不覆盖原生 width/position/display, 保留展开折叠。 */
+html[data-docdeep="on"] [data-docshell="side"] {
+  box-sizing: border-box !important;
+  color: var(--dd-text-2) !important;
+  font-family: var(--dd-font) !important;
+  font-size: 14px !important;
+  line-height: 1.5 !important;
+  background-color: var(--dd-surface) !important;
+  border-right: 1px solid var(--dd-line) !important;
+  scrollbar-color: var(--dd-scrollbar-thumb) transparent;
+  scrollbar-width: thin;
+  overscroll-behavior: contain;
+}
+html[data-docdeep="on"] [data-docshell="side"] > * { box-sizing: border-box; }
+/* 覆盖站点内层列表容器背景，但输入框仍保留自己的表单颜色。 */
+html[data-docdeep="on"] [data-docshell="side"] *:not(input):not(textarea) {
+  background-color: var(--dd-surface) !important;
+}
+html[data-docdeep="on"] [data-docshell="side"] :where(a, [role="link"]) {
+  box-sizing: border-box !important;
+  display: block !important;
+  min-height: 34px !important;
+  margin: 2px 8px !important;
+  padding: 7px 10px !important;
+  overflow: hidden;
+  border: 1px solid transparent !important;
+  border-radius: var(--dd-radius-sm) !important;
+  color: var(--dd-text-2) !important;
+  font: inherit !important;
+  line-height: 1.45 !important;
+  text-decoration: none !important;
+  transition: background-color var(--dd-dur-fast) var(--dd-ease), border-color var(--dd-dur-fast) var(--dd-ease), color var(--dd-dur-fast) var(--dd-ease);
+}
+html[data-docdeep="on"] [data-docshell="side"] :where(button, [role="button"]) {
+  box-sizing: border-box !important;
+  color: var(--dd-text-2) !important;
+  font-family: var(--dd-font) !important;
+  border-radius: var(--dd-radius-sm) !important;
+  transition: background-color var(--dd-dur-fast) var(--dd-ease), border-color var(--dd-dur-fast) var(--dd-ease), color var(--dd-dur-fast) var(--dd-ease);
+}
+html[data-docdeep="on"] [data-docshell="side"] :where(a, button, [role="link"], [role="button"]):hover {
+  background-color: var(--dd-hover) !important;
+  border-color: transparent !important;
+  color: var(--dd-text) !important;
+}
+html[data-docdeep="on"] [data-docshell="side"] :where(a, button, [role="link"], [role="button"]):focus-visible {
+  outline: 2px solid var(--dd-line-strong) !important;
+  outline-offset: -2px !important;
+}
+html[data-docdeep="on"] [data-docshell="side"] :where(a, button, [role="link"], [role="button"])[aria-current="page"],
+html[data-docdeep="on"] [data-docshell="side"] :where(a, button, [role="link"], [role="button"])[aria-selected="true"],
+html[data-docdeep="on"] [data-docshell="side"] :where(a, button, [role="link"], [role="button"])[data-active="true"],
+html[data-docdeep="on"] [data-docshell="side"] :where(a, button, [role="link"], [role="button"])[data-state="active"] {
+  background-color: var(--dd-brand-weak) !important;
+  border-color: var(--dd-brand-line) !important;
+  color: var(--dd-brand-strong) !important;
+}
+html[data-docdeep="on"] [data-docshell="side"] :where(a, button, [role="link"], [role="button"]):hover > *,
+html[data-docdeep="on"] [data-docshell="side"] :where(a, button, [role="link"], [role="button"])[aria-current="page"] > *,
+html[data-docdeep="on"] [data-docshell="side"] :where(a, button, [role="link"], [role="button"])[aria-selected="true"] > *,
+html[data-docdeep="on"] [data-docshell="side"] :where(a, button, [role="link"], [role="button"])[data-active="true"] > *,
+html[data-docdeep="on"] [data-docshell="side"] :where(a, button, [role="link"], [role="button"])[data-state="active"] > * {
+  background-color: transparent !important;
+}
+html[data-docdeep="on"] [data-docshell="side"]::-webkit-scrollbar { width: 8px; height: 8px; }
+html[data-docdeep="on"] [data-docshell="side"]::-webkit-scrollbar-thumb {
+  background: var(--dd-scrollbar-thumb); border: 2px solid transparent; border-radius: 999px; background-clip: content-box;
+}
+html[data-docdeep="on"] [data-docshell="side"]::-webkit-scrollbar-thumb:hover {
+  background: var(--dd-scrollbar-thumb-hover); border: 2px solid transparent; border-radius: 999px; background-clip: content-box;
+}
+/* ---------- 顶栏瘦身 ---------- */
+html[data-docdeep="on"] [data-docshell="header"], html[data-docdeep="on"] header {
+  background: rgba(248, 247, 244, .92) !important;
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--dd-line) !important;
+  min-height: 48px !important;
+}
+
+/* 流式时的光标不抖 */
+html[data-docdeep="on"] .ds-markdown.ds-assistant-message-main-content { overflow-wrap: anywhere; }
+
+@media (max-width: 960px) {
+  html[data-docdeep="on"] .ds-message,
+  html[data-docdeep="on"] [data-message-id],
+  html[data-docdeep="on"] [data-docturn] { padding-left: 16px !important; padding-right: 16px !important; }
+  html[data-docdeep="on"] .ds-message:has(.ds-assistant-message-main-content) { border-radius: 0 !important; border-left: 0 !important; border-right: 0 !important; }
+  html[data-docdeep="on"] [data-docshell="side"] { font-size: 13px !important; }
+  html[data-docdeep="on"] [data-docshell="side"] :where(a, [role="link"]) {
+    min-height: 32px !important; margin-left: 6px !important; margin-right: 6px !important;
+    padding-left: 8px !important; padding-right: 8px !important;
+  }
+}
+
+/* ---------- v0.2 主题（正文部分，v0.3.9 起全部走令牌）---------- */
+html[data-docdeep="on"][data-doctheme="bai"] body { background: #FBFBF9 !important; }
+html[data-docdeep="on"][data-doctheme="bai"] .ds-message:has(.ds-assistant-message-main-content) {
+  background: var(--dd-surface-2) !important; border-color: var(--dd-line) !important;
+}
+html[data-docdeep="on"][data-doctheme="bai"] form:has(textarea) {
+  background: var(--dd-surface) !important; border-color: var(--dd-line) !important;
+}
+html[data-docdeep="on"][data-doctheme="bai"] .ds-message:not(:has(.ds-assistant-message-main-content)) > div:first-child {
+  background: var(--dd-accent-wash) !important; border-color: var(--dd-accent-wash-line) !important;
+}
+html[data-docdeep="on"][data-doctheme="bai"] .doc-user-collapsed > div:first-child::after {
+  background: linear-gradient(transparent, var(--dd-accent-wash));
+}
+html[data-docdeep="on"][data-doctheme="mo"] body { background: #15161A !important; }
+html[data-docdeep="on"][data-doctheme="mo"] .ds-message:has(.ds-assistant-message-main-content) {
+  background: var(--dd-surface) !important; border-color: var(--dd-line) !important; box-shadow: none !important;
+}
+html[data-docdeep="on"][data-doctheme="mo"] .ds-message:not(:has(.ds-assistant-message-main-content)) > div:first-child {
+  background: var(--dd-accent-wash) !important; border-color: var(--dd-accent-wash-line) !important; color: var(--dd-text) !important;
+}
+html[data-docdeep="on"][data-doctheme="mo"] .doc-user-collapsed > div:first-child::after {
+  background: linear-gradient(transparent, var(--dd-accent-wash));
+}
+html[data-docdeep="on"][data-doctheme="mo"] .doc-qtag {
+  background: var(--dd-surface-sunken); border-color: var(--dd-brand-line); color: var(--dd-brand);
+}
+html[data-docdeep="on"][data-doctheme="mo"] .ds-markdown.ds-assistant-message-main-content,
+html[data-docdeep="on"][data-doctheme="mo"] .ds-assistant-message-main-content { color: var(--dd-text) !important; }
+html[data-docdeep="on"][data-doctheme="mo"] .ds-markdown h1 { border-bottom-color: var(--dd-line) !important; }
+html[data-docdeep="on"][data-doctheme="mo"] .ds-markdown h3 { color: var(--dd-text-2) !important; }
+html[data-docdeep="on"][data-doctheme="mo"] .ds-markdown blockquote {
+  background: var(--dd-focus-bg) !important; border-left-color: var(--dd-focus-line) !important; color: var(--dd-focus-ink) !important;
+}
+html[data-docdeep="on"][data-doctheme="mo"] .ds-markdown table th,
+html[data-docdeep="on"][data-doctheme="mo"] .ds-markdown table td { border-color: var(--dd-line) !important; }
+html[data-docdeep="on"][data-doctheme="mo"] .ds-markdown thead th { background: var(--dd-surface-2) !important; }
+html[data-docdeep="on"][data-doctheme="mo"] .ds-markdown tbody tr:nth-child(even) td { background: var(--dd-surface-2) !important; }
+html[data-docdeep="on"][data-doctheme="mo"] .ds-markdown :not(pre) > code {
+  background: var(--dd-surface-2) !important; border-color: var(--dd-line) !important; color: var(--dd-focus-text) !important;
+}
+html[data-docdeep="on"][data-doctheme="mo"] form:has(textarea) {
+  background: var(--dd-surface) !important; border-color: var(--dd-line) !important; box-shadow: var(--dd-shadow-soft) !important;
+}
+html[data-docdeep="on"][data-doctheme="mo"] [data-docshell="header"], html[data-docdeep="on"][data-doctheme="mo"] header { background: rgba(21, 22, 26, .92) !important; border-bottom-color: var(--dd-line) !important; }

@@ -45,7 +45,7 @@
   }
 
   /* ---- 深色分支：跟随页面「墨色」主题 ----
-     由 popup.js 在 <html> 上写 data-theme="dark"（paint() 内同步）。 */
+     由 popup.parts/02-themes.js 在 <html> 上写 data-theme="dark"（paint() 内同步）。 */
   :root[data-theme="dark"] {
     --bg: #15161A;
     --sidebar: #1B1D22;
@@ -233,44 +233,6 @@
     background: var(--surface); border: 1px dashed var(--line-strong); border-radius: var(--radius);
   }
 
-  /* ---------- 对话队列（Phase-7） ---------- */
-  .ta {
-    width: 100%; min-height: 104px; resize: vertical;
-    border: 1px solid var(--line-strong); border-radius: var(--radius);
-    padding: 8px 9px; background: var(--surface); color: var(--text);
-    font: 12px/1.6 var(--font); outline: none;
-    transition: border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
-  }
-  .ta::placeholder { color: var(--muted); }
-  .ta:hover:not(:disabled) { border-color: var(--line-strong); }
-  .ta:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--accent-soft); }
-  .queue-compose { display: grid; gap: 10px; }
-  .queue-compose[hidden] { display: none; }
-  .queue-state { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 11.5px; color: var(--text-2); }
-  .queue-state .queue-error { color: var(--brand); text-align: right; }
-  .queue-error[hidden] { display: none; }
-  .queue-list { display: grid; gap: 4px; max-height: 148px; overflow: auto; padding-right: 2px; scrollbar-width: thin; }
-  .queue-list::-webkit-scrollbar { width: 8px; }
-  .queue-list::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 999px; border: 2px solid transparent; background-clip: content-box; }
-  .queue-item {
-    display: flex; align-items: baseline; gap: 7px;
-    padding: 6px 9px; background: var(--surface);
-    border: 1px solid var(--line); border-radius: var(--radius-sm);
-    font-size: 11.5px; line-height: 1.5; color: var(--muted);
-  }
-  .queue-mark { flex: none; width: 10px; text-align: center; }
-  .queue-item-text { min-width: 0; flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .queue-item[data-state="done"] .queue-mark { color: var(--brand); }
-  .queue-item[data-state="done"] .queue-item-text { text-decoration: line-through; text-decoration-color: var(--line-strong); }
-  .queue-item[data-state="current"] { border-color: var(--brand-line); background: var(--brand-weak); color: var(--text); font-weight: 600; }
-  .queue-item[data-state="current"] .queue-mark { color: var(--brand); }
-  .queue-item[data-state="paused"] { border-color: var(--brand-line); color: var(--text-2); }
-  .queue-item[data-state="paused"] .queue-mark { color: var(--brand); }
-  .queue-empty {
-    padding: 14px 12px; text-align: center;
-    font-size: 11.5px; line-height: 1.6; color: var(--muted);
-    background: var(--surface); border: 1px dashed var(--line-strong); border-radius: var(--radius);
-  }
 
   /* ---------- 模板（外观预设） ---------- */
   .skins { display: grid; gap: 8px; }
@@ -339,7 +301,7 @@
       <span class="app-logo" aria-hidden="true" data-page-node-id="NbS0kiitDiSV0GDSGFWAep">文</span>
       <div class="app-title" data-page-node-id="5BZA9cqUFKrlShxbORDFeH">
         <h1 class="app-name" data-page-node-id="JWxViIuj8brADVphFxOJ8u">deepseek ui</h1>
-        <span class="app-ver" data-page-node-id="tX80dQF4wZmQSUBYXlUeCQ">v0.3.26</span>
+        <span class="app-ver" data-page-node-id="tX80dQF4wZmQSUBYXlUeCQ">v0.3.37</span>
       </div>
     </div>
   </header>
@@ -348,7 +310,6 @@
     <button type="button" class="tab is-active" data-tab="read" role="tab" aria-selected="true" data-page-node-id="EdguWrXFLU7VCKrX43kmj2">阅读</button>
     <button type="button" class="tab" data-tab="skin" role="tab" aria-selected="false" data-page-node-id="S6kQ2vLpXc8bT3nRwY7dHz">模板</button>
     <button type="button" class="tab" data-tab="act" role="tab" aria-selected="false" data-page-node-id="CskorsRyx6YaoFPBB79n4Z">操作</button>
-    <button type="button" class="tab" data-tab="queue" role="tab" aria-selected="false">队列</button>
     <button type="button" class="tab" data-tab="mark" role="tab" aria-selected="false" data-page-node-id="jvbAVDMSICfgq5LAuFYC3q">收藏</button>
   </nav>
 
@@ -402,6 +363,13 @@
             </div>
             <button type="button" class="sw" id="ol" role="switch" aria-checked="true" aria-labelledby="l-ol" data-page-node-id="OeX0WgMsGqR1ybMDth85JP"></button>
           </div>
+          <div class="row">
+            <div class="row-txt">
+              <label id="l-hidethink"><b>隐藏思考过程</b></label>
+              <small>思考中不显示正文；回答后自动收拢，点标题行可展开回看</small>
+            </div>
+            <button type="button" class="sw" id="hidethink" role="switch" aria-checked="true" aria-labelledby="l-hidethink"></button>
+          </div>
           <div class="row" data-page-node-id="ciIKd9ZBTXLnHcb9U4bupR">
             <div class="row-txt" data-page-node-id="Tm1rCyTH7EPFmBfFL8lf5t">
               <label id="l-keys" data-page-node-id="la9eosreUdRcGSj9M4S1s9"><b data-page-node-id="MRMKgf9tIEyLLQVmIILKde">键盘导航</b></label>
@@ -422,6 +390,13 @@
               <small>选中文字时显示富文本格式工具栏</small>
             </div>
             <button type="button" class="sw" id="format" role="switch" aria-checked="true" aria-labelledby="l-format"></button>
+          </div>
+          <div class="row">
+            <div class="row-txt">
+              <label id="l-addtobox"><b>添加到输入框按钮</b></label>
+              <small>选中正文时浮出按钮，一键送入输入框追问</small>
+            </div>
+            <button type="button" class="sw" id="addtobox" role="switch" aria-checked="true" aria-labelledby="l-addtobox"></button>
           </div>
         </div>
       </div>
@@ -481,33 +456,6 @@
       <p class="pane-note" data-page-node-id="CYsFk0IKQY40nFttXSZolo">导出前会自动滚动采集全部内容，过程中可随时取消。</p>
     </section>
 
-    <!-- 对话队列 -->
-    <section class="pane" data-pane="queue" role="tabpanel" aria-label="对话队列">
-      <div class="card">
-        <div class="card-hd"><span class="card-title">对话队列</span><span class="card-note">一行一条</span></div>
-        <div class="card-bd">
-          <div class="queue-compose" id="queue-compose">
-            <div class="field--block">
-              <label for="queue-text">待提问内容</label>
-              <textarea class="ta" id="queue-text" rows="5" aria-label="待提问内容"
-                placeholder="一行一条，例如：&#10;请告诉我宇宙大爆炸的概念&#10;月球对地球包含什么影响？&#10;恐龙是怎么灭绝的？"></textarea>
-            </div>
-            <button type="button" class="btn btn-primary btn-block" id="queue-start">加入队列并开始</button>
-          </div>
-          <div class="grid">
-            <button type="button" class="btn" id="queue-pause">暂停</button>
-            <button type="button" class="btn" id="queue-clear">清空队列</button>
-          </div>
-          <div class="queue-state">
-            <span id="queue-state">队列为空</span>
-            <span class="queue-error" id="queue-error" hidden></span>
-          </div>
-        </div>
-      </div>
-      <div class="list-hd"><span class="card-title">队列进度</span><span class="card-note">上一条答完自动发下一条</span></div>
-      <div class="queue-list" id="queue-list"></div>
-      <p class="pane-note">队列只保存在当前页面内存里，刷新或换会话即清空；运行中可用页面右下角的队列面板暂停。只发送纯文本，不支持附件。</p>
-    </section>
 
     <!-- 本地收藏 -->
     <section class="pane" data-pane="mark" role="tabpanel" aria-label="本地收藏" data-page-node-id="v0aKOrqFDSID6tQ7VRQ6q0">
@@ -546,6 +494,9 @@
     <div class="status" id="tip" role="status" aria-live="polite" data-page-node-id="9bsXkTHLfvkS0bmWej0cbr">已启用。关闭后页面即恢复原站，无需刷新。</div>
     <p class="privacy" data-page-node-id="013065NPK9Bzq37MPdoLCO">设置和收藏保存在本地，只保存收藏标题与链接，不读取账号与 Token。</p>
   </footer>
-<script src="popup.js"></script>
+<script src="popup.parts/00-core.js"></script>
+<script src="popup.parts/01-bookmarks.js"></script>
+<script src="popup.parts/02-themes.js"></script>
+<script src="popup.parts/03-entry.js"></script>
 </body>
 </html>

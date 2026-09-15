@@ -1,0 +1,236 @@
+/* ---------- 键盘导航帮助 ---------- */
+html[data-docdeep="on"] #docdeep-keys-help {
+  position: fixed;
+  right: 50%;
+  bottom: 24px;
+  transform: translateX(50%);
+  z-index: var(--dd-z);
+  width: 320px;
+  max-width: calc(100vw - 32px);
+  background: var(--dd-surface);
+  border: 1px solid var(--dd-line);
+  border-radius: var(--dd-radius-lg);
+  box-shadow: var(--dd-shadow);
+  padding: 14px 14px 12px;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--dd-text-2);
+  font-family: var(--dd-font);
+}
+html[data-docdeep="on"] #docdeep-keys-help .doc-keys-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--dd-text);
+  margin-bottom: 10px;
+}
+html[data-docdeep="on"] #docdeep-keys-help .doc-keys-list {
+  margin: 0 0 10px;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 6px;
+}
+html[data-docdeep="on"] #docdeep-keys-help .doc-keys-list li {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+html[data-docdeep="on"] #docdeep-keys-help kbd {
+  flex: none;
+  min-width: 26px;
+  text-align: center;
+  border: 1px solid var(--dd-line);
+  border-bottom-width: 2px;
+  border-radius: var(--dd-radius-sm);
+  background: var(--dd-surface-2);
+  padding: 1px 7px;
+  font-size: 11px;
+  font-family: var(--dd-font);
+  color: var(--dd-text-2);
+  line-height: 1.5;
+}
+html[data-docdeep="on"] #docdeep-keys-help .doc-keys-list span {
+  min-width: 0;
+  color: var(--dd-text-2);
+}
+html[data-docdeep="on"] #docdeep-keys-help .doc-keys-tip {
+  color: var(--dd-muted);
+  font-size: 11.5px;
+  line-height: 1.6;
+  margin-bottom: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--dd-line);
+}
+html[data-docdeep="on"] #docdeep-keys-help .doc-keys-close {
+  border: 1px solid var(--dd-line);
+  background: var(--dd-surface-2);
+  border-radius: var(--dd-radius-sm);
+  font-size: 12px;
+  font-family: var(--dd-font);
+  color: var(--dd-text-2);
+  padding: 5px 14px;
+  cursor: pointer;
+  display: block;
+  margin-left: auto;
+  transition: border-color var(--dd-dur-fast) var(--dd-ease), background-color var(--dd-dur-fast) var(--dd-ease), color var(--dd-dur-fast) var(--dd-ease);
+}
+html[data-docdeep="on"] #docdeep-keys-help .doc-keys-close:hover {
+  border-color: var(--dd-line-strong);
+  background: var(--dd-hover);
+  color: var(--dd-text);
+}
+html[data-docdeep="on"] #docdeep-keys-help .doc-keys-close:focus-visible {
+  outline: 2px solid var(--dd-line-strong);
+  outline-offset: 2px;
+}
+
+/* ---------- 提示条 / 导出进度（浅色主题白卡，墨色主题深卡，随 --dd-toast-* 切换）---------- */
+html[data-docdeep="on"] #docdeep-toast {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2147483001;
+  max-width: calc(100vw - 32px);
+  background: var(--dd-toast-bg);
+  color: var(--dd-toast-ink);
+  border: 1px solid var(--dd-toast-line);
+  font-size: 13px;
+  font-family: var(--dd-font);
+  border-radius: 999px;
+  padding: 9px 18px;
+  box-shadow: var(--dd-shadow-hover);
+  animation: dd-pop var(--dd-dur-base) var(--dd-ease);
+}
+html[data-docdeep="on"] #docdeep-export-progress {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2147483001;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: calc(100vw - 32px);
+  background: var(--dd-toast-bg);
+  color: var(--dd-toast-ink);
+  border: 1px solid var(--dd-toast-line);
+  border-radius: 999px;
+  padding: 8px 10px 8px 14px;
+  font-size: 12.5px;
+  font-family: var(--dd-font);
+  box-shadow: var(--dd-shadow-hover);
+  animation: dd-pop var(--dd-dur-base) var(--dd-ease);
+}
+html[data-docdeep="on"] #docdeep-export-progress::before {
+  content: "";
+  flex: none;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: 2px solid var(--dd-toast-line);
+  border-top-color: var(--dd-toast-spin);
+  animation: dd-spin .8s linear infinite;
+}
+html[data-docdeep="on"] #docdeep-export-progress .doc-export-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+html[data-docdeep="on"] #docdeep-export-progress button {
+  flex: none;
+  border: 1px solid var(--dd-toast-btn-line);
+  border-radius: 999px;
+  padding: 3px 12px;
+  background: transparent;
+  color: var(--dd-toast-ink);
+  font-size: 12px;
+  font-family: var(--dd-font);
+  cursor: pointer;
+  transition: background-color var(--dd-dur-fast) var(--dd-ease);
+}
+html[data-docdeep="on"] #docdeep-export-progress button:hover { background: var(--dd-toast-btn-hover); }
+html[data-docdeep="on"] #docdeep-export-progress button:focus-visible {
+  outline: 2px solid var(--dd-toast-focus);
+  outline-offset: 2px;
+}
+
+/* ---------- 导出格式选择弹窗(目录“导出选中”统一入口,随 --dd-* 令牌自动适配浅色/墨色) ---------- */
+html[data-docdeep="on"] #docdeep-export-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--dd-z) + 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(45, 42, 38, .32);
+  font-family: var(--dd-font);
+  padding: 16px;
+  box-sizing: border-box;
+}
+html[data-docdeep="on"] #docdeep-export-dialog .doc-export-dialog-panel {
+  width: 260px;
+  max-width: calc(100vw - 32px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--dd-surface);
+  border: 1px solid var(--dd-line);
+  border-radius: var(--dd-radius-lg);
+  box-shadow: var(--dd-shadow-hover);
+  padding: 14px;
+  box-sizing: border-box;
+  animation: dd-pop var(--dd-dur-base) var(--dd-ease);
+}
+html[data-docdeep="on"] #docdeep-export-dialog .doc-export-dialog-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--dd-text);
+  line-height: 1.5;
+}
+html[data-docdeep="on"] #docdeep-export-dialog .doc-export-dialog-sub {
+  font-size: 11.5px;
+  color: var(--dd-muted);
+  line-height: 1.5;
+  margin-bottom: 4px;
+}
+html[data-docdeep="on"] #docdeep-export-dialog .doc-export-btn {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--dd-line);
+  background: var(--dd-surface-2);
+  color: var(--dd-text-2);
+  border-radius: var(--dd-radius-sm);
+  font-size: 12.5px;
+  line-height: 1.5;
+  padding: 8px 10px;
+  cursor: pointer;
+  font-family: var(--dd-font);
+  text-align: center;
+  transition: background-color var(--dd-dur-fast) var(--dd-ease), border-color var(--dd-dur-fast) var(--dd-ease), color var(--dd-dur-fast) var(--dd-ease);
+}
+html[data-docdeep="on"] #docdeep-export-dialog .doc-export-btn:hover {
+  border-color: var(--dd-line-strong);
+  background: var(--dd-hover);
+  color: var(--dd-text);
+}
+html[data-docdeep="on"] #docdeep-export-dialog .doc-export-btn:focus-visible {
+  outline: 2px solid var(--dd-line-strong);
+  outline-offset: 2px;
+}
+html[data-docdeep="on"] #docdeep-export-dialog .doc-export-close {
+  background: transparent;
+}
+
+@keyframes dd-pop {
+  from { opacity: 0; transform: translateX(-50%) translateY(-4px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+@keyframes dd-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  html[data-docdeep="on"] #docdeep-toast,
+  html[data-docdeep="on"] #docdeep-export-progress { animation: none; }
+  html[data-docdeep="on"] #docdeep-export-progress::before { animation-duration: 2s; }
+}

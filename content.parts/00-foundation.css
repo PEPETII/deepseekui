@@ -1,0 +1,178 @@
+/* deepseek ui v0.3 — 纯视觉重排，不动功能节点。
+   所有规则以 html[data-docdeep="on"] 开头，关闭即恢复原站。
+   版式由 JS 经 --doc-paper-w / --doc-font 变量注入，主题经 data-doctheme 切换。
+   v0.3.4-ui：注入组件统一走 --dd-* 设计令牌，主题只需覆盖令牌。
+   v0.3.9-skin：整体换肤为「温润纸感」——三级纸面、赤陶点睛、暖调文字、
+   多层柔和阴影（透明度 ≤.08）、动效三档（.15s/.2s/.3s，统一缓出）。
+   强调色赤陶 #C06B52 全屏控制在 5 处以内，只标"当前位置"与"可点动作"。 */
+
+html[data-docdeep="on"] {
+  --doc-paper-w: 880px;
+  --doc-font: 17px;
+
+  /* ---- 注入 UI 设计令牌（温润纸感 · 默认主题）----
+     三级纸面：应用底 #F8F7F4 → 侧栏/浮层面 #F1EFE8 → 卡片纯白 #FFFFFF
+     层级靠明度差建立，阴影只做辅助。 */
+  --dd-surface: #F1EFE8;
+  --dd-surface-2: #FFFFFF;
+  --dd-surface-sunken: #E8E5DC;
+  --dd-line: #E2DBD2;
+  --dd-line-strong: #BBAEA0;
+  --dd-text: #2D2A26;
+  --dd-text-2: #574F45;
+  --dd-muted: #797368;
+  --dd-brand: #C06B52;
+  --dd-brand-strong: #AB5E48;
+  --dd-brand-weak: #F7EEE9;
+  --dd-brand-line: #E4C7BC;
+  --dd-hover: #E8E5DC;
+  --dd-radius-sm: 6px;
+  --dd-radius: 10px;
+  --dd-radius-lg: 16px;
+  --dd-shadow: 0 1px 2px rgba(45, 42, 38, .05), 0 4px 12px rgba(45, 42, 38, .05), 0 10px 30px rgba(45, 42, 38, .08);
+  --dd-shadow-soft: 0 1px 2px rgba(45, 42, 38, .05), 0 4px 12px rgba(45, 42, 38, .04);
+  --dd-shadow-hover: 0 2px 4px rgba(45, 42, 38, .06), 0 6px 16px rgba(45, 42, 38, .06), 0 14px 40px rgba(45, 42, 38, .08);
+  --dd-z: 2147483000;
+  --dd-font: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB",
+    "Microsoft YaHei", "Noto Sans SC", sans-serif;
+  --dd-font-serif: "Newsreader", "Songti SC", "Noto Serif SC",
+    "Source Han Serif SC", "STSong", "SimSun", serif;
+
+  /* ---- 语义补充色：淡金黄（引用块 / 行内代码）---- */
+  --dd-focus-bg: #FBF6E7;
+  --dd-focus-line: #C9A227;
+  --dd-focus-ink: #6B5F3F;
+  --dd-focus-text: #8A6A1F;
+
+  /* ---- 语义补充色：用户问块的淡赤陶底 ---- */
+  --dd-accent-wash: #F4EEE9;
+  --dd-accent-wash-line: #E8DDD6;
+
+  /* ---- 柔光与悬停叠加 ---- */
+  --dd-accent-soft: rgba(192, 107, 82, .12);
+  --dd-accent-soft-hover: rgba(192, 107, 82, .22);
+  --dd-hover-tint: rgba(45, 42, 38, .04);
+  --dd-hover-tint-strong: rgba(45, 42, 38, .06);
+  --dd-scrollbar-thumb: rgba(45, 42, 38, .15);
+  --dd-scrollbar-thumb-hover: rgba(45, 42, 38, .25);
+
+  /* ---- 代码块（浅色主题：纸感浅底）---- */
+  --dd-code-bg: #F1EFE8;
+  --dd-code-ink: #2D2A26;
+  --dd-code-line: #E2DBD2;
+  --dd-code-head-bg: rgba(45, 42, 38, .04);
+  --dd-code-head-ink: #797368;
+
+  /* ---- 提示条 / 导出进度（浅色主题：纯白卡）---- */
+  --dd-toast-bg: #FFFFFF;
+  --dd-toast-ink: #2D2A26;
+  --dd-toast-line: #E2DBD2;
+  --dd-toast-btn-line: rgba(45, 42, 38, .25);
+  --dd-toast-btn-hover: rgba(45, 42, 38, .06);
+  --dd-toast-spin: var(--dd-brand);
+  --dd-toast-focus: #C06B52;
+
+  /* ---- 按钮基础色：主按钮深墨（模板同款），赤陶只留给状态与当前位置 ---- */
+  --dd-btn-primary: #2D2A26;
+  --dd-btn-primary-hover: #45413C;
+  --dd-btn-primary-ink: #FFFFFF;
+
+  /* ---- 查找文字命中高亮（普通浅黄 / 当前更强橙，深浅主题分别保证对比）---- */
+  --dd-find-bg: #FFE58F;
+  --dd-find-ink: #2D2A26;
+  --dd-find-active-bg: #FF9E2C;
+  --dd-find-active-ink: #1B1D22;
+
+  /* ---- 动效：三档时长 + 统一缓出 ---- */
+  --dd-ease: cubic-bezier(.2, 0, 0, 1);
+  --dd-dur-fast: .15s;
+  --dd-dur-base: .2s;
+  --dd-dur-slow: .3s;
+}
+
+/* 纯白主题：只换令牌（温润纸感的更白变体，弱化暖调但不脱离纸感） */
+html[data-docdeep="on"][data-doctheme="bai"] {
+  --dd-surface: #F4F3F0;
+  --dd-surface-2: #FFFFFF;
+  --dd-surface-sunken: #EBEAE6;
+  --dd-line: #E6E4DF;
+  --dd-line-strong: #C9C5BD;
+  --dd-text: #2D2A26;
+  --dd-text-2: #574F45;
+  --dd-muted: #797368;
+  --dd-hover: #F1F0EC;
+  --dd-shadow: 0 1px 2px rgba(45, 42, 38, .05), 0 4px 12px rgba(45, 42, 38, .05), 0 10px 30px rgba(45, 42, 38, .08);
+  --dd-shadow-soft: 0 1px 2px rgba(45, 42, 38, .05), 0 4px 12px rgba(45, 42, 38, .04);
+  --dd-shadow-hover: 0 2px 4px rgba(45, 42, 38, .06), 0 6px 16px rgba(45, 42, 38, .06), 0 14px 40px rgba(45, 42, 38, .08);
+
+  --dd-btn-primary: #2D2A26;
+  --dd-btn-primary-hover: #45413C;
+  --dd-btn-primary-ink: #FFFFFF;
+}
+
+/* 墨色主题：只换令牌（温润纸感的深色分支） */
+html[data-docdeep="on"][data-doctheme="mo"] {
+  --dd-surface: #23262C;
+  --dd-surface-2: #2C2F36;
+  --dd-surface-sunken: #1B1D22;
+  --dd-line: #2F333A;
+  --dd-line-strong: #4A505A;
+  --dd-text: #E6E4DF;
+  --dd-text-2: #B4AFA6;
+  --dd-muted: #9A958B;
+  --dd-brand: #E08A6F;
+  --dd-brand-strong: #EAA088;
+  --dd-brand-weak: #3A2B26;
+  --dd-brand-line: #5C4038;
+  --dd-hover: #2F333A;
+  --dd-shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 4px 14px rgba(0, 0, 0, .25), 0 12px 32px rgba(0, 0, 0, .45);
+  --dd-shadow-soft: 0 1px 2px rgba(0, 0, 0, .25), 0 4px 14px rgba(0, 0, 0, .3);
+  --dd-shadow-hover: 0 2px 4px rgba(0, 0, 0, .35), 0 6px 18px rgba(0, 0, 0, .3), 0 16px 40px rgba(0, 0, 0, .5);
+
+  --dd-focus-bg: rgba(184, 134, 11, .18);
+  --dd-focus-line: #E8C547;
+  --dd-focus-ink: #C9BCA0;
+  --dd-focus-text: #E8C547;
+
+  --dd-accent-wash: #2E2622;
+  --dd-accent-wash-line: #45382F;
+
+  --dd-accent-soft: rgba(224, 138, 111, .16);
+  --dd-accent-soft-hover: rgba(224, 138, 111, .28);
+  --dd-hover-tint: rgba(255, 255, 255, .05);
+  --dd-hover-tint-strong: rgba(255, 255, 255, .08);
+  --dd-scrollbar-thumb: rgba(255, 255, 255, .14);
+  --dd-scrollbar-thumb-hover: rgba(255, 255, 255, .24);
+
+  /* 代码块（深色主题：深墨底） */
+  --dd-code-bg: #1B1D22;
+  --dd-code-ink: #E6E4DF;
+  --dd-code-line: #2F333A;
+  --dd-code-head-bg: rgba(255, 255, 255, .06);
+  --dd-code-head-ink: #9A958B;
+
+  /* 提示条 / 导出进度（深色主题：深卡） */
+  --dd-toast-bg: #2C2F36;
+  --dd-toast-ink: #E6E4DF;
+  --dd-toast-line: #3A3F48;
+  --dd-toast-btn-line: rgba(255, 255, 255, .5);
+  --dd-toast-btn-hover: rgba(255, 255, 255, .14);
+  --dd-toast-spin: var(--dd-brand);
+  --dd-toast-focus: #E08A6F;
+
+  --dd-btn-primary: #E6E4DF;
+  --dd-btn-primary-hover: #FFFFFF;
+  --dd-btn-primary-ink: #15161A;
+
+  /* 查找高亮深色分支：普通半透明金黄仍衬浅字，当前实心橙配深字 */
+  --dd-find-bg: rgba(255, 213, 74, .38);
+  --dd-find-ink: #FFF8E1;
+  --dd-find-active-bg: #FFB020;
+  --dd-find-active-ink: #1B1D22;
+}
+
+html[data-docdeep="on"] body {
+  background: #F8F7F4 !important;
+  font-family: var(--dd-font) !important;
+  text-autospace: normal;
+}

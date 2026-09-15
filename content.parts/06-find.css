@@ -1,0 +1,101 @@
+/* ---------- 当前会话查找 ---------- */
+html[data-docdeep="on"] #docdeep-find {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  padding: 8px;
+  background: var(--dd-surface);
+  border: 1px solid var(--dd-line);
+  border-radius: var(--dd-radius);
+  box-shadow: var(--dd-shadow);
+  font-family: var(--dd-font);
+  max-width: 100%;
+}
+html[data-docdeep="on"] #docdeep-find input {
+  width: min(46vw, 260px);
+  min-width: 120px;
+  border: 1px solid var(--dd-line);
+  border-radius: var(--dd-radius-sm);
+  padding: 6px 10px;
+  font-size: 12.5px;
+  font-family: var(--dd-font);
+  color: var(--dd-text);
+  background: var(--dd-surface-2);
+  outline: none;
+  transition: border-color var(--dd-dur-base) var(--dd-ease), box-shadow var(--dd-dur-base) var(--dd-ease);
+}
+html[data-docdeep="on"] #docdeep-find input::placeholder { color: var(--dd-muted); }
+html[data-docdeep="on"] #docdeep-find input:hover { border-color: var(--dd-line-strong); }
+/* 聚焦时长出一圈 3px 的强调色柔光环（标志性细节） */
+html[data-docdeep="on"] #docdeep-find input:focus {
+  border-color: var(--dd-line-strong);
+  box-shadow: 0 0 0 3px var(--dd-accent-soft);
+}
+html[data-docdeep="on"] #docdeep-find button {
+  min-width: 28px;
+  height: 26px;
+  border: 1px solid var(--dd-line);
+  border-radius: var(--dd-radius-sm);
+  padding: 0 7px;
+  background: var(--dd-surface-2);
+  color: var(--dd-text-2);
+  cursor: pointer;
+  font-size: 12px;
+  font-family: var(--dd-font);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color var(--dd-dur-fast) var(--dd-ease), border-color var(--dd-dur-fast) var(--dd-ease), color var(--dd-dur-fast) var(--dd-ease);
+}
+html[data-docdeep="on"] #docdeep-find button:hover {
+  border-color: var(--dd-line-strong);
+  background: var(--dd-hover);
+  color: var(--dd-text);
+}
+html[data-docdeep="on"] #docdeep-find button:focus-visible {
+  outline: 2px solid var(--dd-line-strong);
+  outline-offset: 2px;
+}
+html[data-docdeep="on"] .doc-find-count {
+  min-width: 46px;
+  text-align: center;
+  font-size: 11.5px;
+  color: var(--dd-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+html[data-docdeep="on"] #docdeep-find .doc-find-count.is-empty { color: var(--dd-muted); }
+html[data-docdeep="on"] [data-doc-search-hit].doc-search-hit {
+  outline: 2px solid var(--dd-brand-line);
+  outline-offset: 3px;
+  border-radius: var(--dd-radius-sm);
+}
+html[data-docdeep="on"] [data-doc-search-hit].doc-search-active {
+  outline-color: var(--dd-brand);
+  background: var(--dd-brand-weak);
+}
+/* ---------- 查找文字命中高亮（主要定位方式，容器外框仅保留为辅助）---------- */
+/* CSS Custom Highlight API 主路径：不改 DOM，不影响复制/选中/代码块 */
+html[data-docdeep="on"]::highlight(docdeep-find) {
+  background-color: var(--dd-find-bg);
+  color: var(--dd-find-ink);
+}
+html[data-docdeep="on"]::highlight(docdeep-find-active) {
+  background-color: var(--dd-find-active-bg);
+  color: var(--dd-find-active-ink);
+}
+/* 回退路径：可逆 <mark> 包裹（关闭/改词即解包还原，不带 docdeep-injected 以免误删正文） */
+html[data-docdeep="on"] .docdeep-find-mark {
+  background-color: var(--dd-find-bg);
+  color: var(--dd-find-ink);
+  border-radius: 3px;
+  padding: 0 1px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+html[data-docdeep="on"] .docdeep-find-mark.doc-find-active {
+  background-color: var(--dd-find-active-bg);
+  color: var(--dd-find-active-ink);
+  outline: 2px solid var(--dd-find-active-bg);
+  outline-offset: 1px;
+}

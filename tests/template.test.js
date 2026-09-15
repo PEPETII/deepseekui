@@ -1,7 +1,18 @@
 // 「模板」分区纯函数单测：模板档位映射 + 命中判定（无 DOM，无 chrome）
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const popup = require('../popup.js');
+const fs = require('node:fs');
+const path = require('node:path');
+
+// popup 逻辑自物理拆分起分散在 popup.parts/*.js，由 popup.html 按序 <script> 加载、共享顶层作用域。
+// Node 无共享脚本作用域，这里按原加载顺序就地拼接后求值，复现原 popup.js 的导出面；下方断言不变。
+const POPUP_PARTS = ['00-core.js', '01-bookmarks.js', '02-themes.js', '03-entry.js'];
+const popupSource = POPUP_PARTS
+  .map(name => fs.readFileSync(path.resolve(__dirname, '..', 'popup.parts', name), 'utf8'))
+  .join('\n');
+const moduleShim = { exports: {} };
+new Function('module', 'exports', popupSource)(moduleShim, moduleShim.exports);
+const popup = moduleShim.exports;
 
 const LEGAL_THEMES = ['mi', 'bai', 'mo'];
 

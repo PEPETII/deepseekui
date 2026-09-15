@@ -1,0 +1,246 @@
+/* ---------- 中央纸张：消息滚动区 ---------- */
+html[data-docdeep="on"] .ds-virtual-list,
+html[data-docdeep="on"] .ds-virtual-list-items,
+html[data-docdeep="on"] .ds-virtual-list-visible-items {
+  background: transparent !important;
+}
+
+/* 每个轮次收窄居中成纸(注: 必须同时 width:100%, 否则在 flex/窄父容器下 max-width 改了也看不见) */
+html[data-docdeep="on"] body .ds-message,
+html[data-docdeep="on"] body [data-message-id],
+html[data-docdeep="on"] body [data-docturn] {
+  width: 100% !important;
+  max-width: var(--doc-paper-w) !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  padding-left: 40px !important;
+  padding-right: 40px !important;
+  box-sizing: border-box !important;
+}
+
+/* v0.2.3 祖先列限宽: 探针证实轮次父层仅752px, 光控轮次不够。
+   解除消息区与主区各 div 的 max-width 上限(:where 特异性归零, 轮次/form 自身规则不受影响,
+   由它们自己的 max-width:var(--doc-paper-w) 接管)。 */
+html[data-docdeep="on"] body .ds-virtual-list :where(div),
+html[data-docdeep="on"] body main :where(div) {
+  max-width: none !important;
+}
+
+/* ---------- 用户问：节标题签，去气泡 ---------- */
+html[data-docdeep="on"] .ds-message:not(:has(.ds-assistant-message-main-content)) {
+  margin-top: 30px !important;
+  margin-bottom: 8px !important;
+}
+html[data-docdeep="on"] .ds-message:not(:has(.ds-assistant-message-main-content)) > div:first-child {
+  background: var(--dd-accent-wash) !important;
+  border: 1px solid var(--dd-accent-wash-line) !important;
+  border-radius: var(--dd-radius) !important;
+  box-shadow: none !important;
+  font-size: 15px !important;
+  line-height: 1.8 !important;
+  color: var(--dd-text) !important;
+  padding: 12px 16px !important;
+  max-width: 100% !important;
+}
+/* JS 注入的 Q 编号 */
+html[data-docdeep="on"] .doc-qtag {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  color: var(--dd-brand);
+  background: var(--dd-surface-2);
+  border: 1px solid var(--dd-brand-line);
+  border-radius: 999px;
+  padding: 1px 9px;
+  font-family: var(--dd-font-serif);
+  margin-right: 9px;
+  line-height: 20px;
+  vertical-align: 1px;
+  white-space: nowrap;
+}
+/* 超长用户问折叠 */
+html[data-docdeep="on"] .doc-user-collapsed > div:first-child {
+  max-height: 132px !important;
+  overflow: hidden !important;
+  position: relative;
+}
+html[data-docdeep="on"] .doc-user-collapsed > div:first-child::after {
+  content: "";
+  position: absolute; left: 0; right: 0; bottom: 0; height: 56px;
+  background: linear-gradient(transparent, var(--dd-accent-wash));
+}
+html[data-docdeep="on"] .doc-expand {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--dd-text-2);
+  background: transparent;
+  border: 1px solid var(--dd-line);
+  border-radius: 999px;
+  padding: 2px 12px;
+  cursor: pointer;
+  font-family: var(--dd-font);
+  transition: background-color var(--dd-dur-fast) var(--dd-ease), border-color var(--dd-dur-fast) var(--dd-ease);
+}
+html[data-docdeep="on"] .doc-expand:hover { background: var(--dd-hover); border-color: var(--dd-line-strong); }
+html[data-docdeep="on"] .doc-expand:focus-visible { outline: 2px solid var(--dd-line-strong); outline-offset: 2px; }
+
+/* ---------- AI 答：正文章节，去气泡 ---------- */
+html[data-docdeep="on"] .ds-message:has(.ds-assistant-message-main-content) {
+  background: #FFFFFF !important;
+  border: 1px solid var(--dd-line) !important;
+  border-radius: var(--dd-radius-lg) !important;
+  box-shadow: var(--dd-shadow) !important;
+  margin-top: 12px !important;
+  margin-bottom: 24px !important;
+  padding-top: 28px !important;
+  padding-bottom: 32px !important;
+  transition: box-shadow var(--dd-dur-slow) var(--dd-ease) !important;
+}
+/* 悬停时阴影扩散一档，而不是加粗描边 */
+html[data-docdeep="on"] .ds-message:has(.ds-assistant-message-main-content):hover {
+  box-shadow: var(--dd-shadow-hover) !important;
+}
+html[data-docdeep="on"] .ds-markdown.ds-assistant-message-main-content,
+html[data-docdeep="on"] .ds-assistant-message-main-content {
+  background: transparent !important;
+  box-shadow: none !important;
+  border: 0 !important;
+  font-size: var(--doc-font) !important;
+  line-height: 1.9 !important;
+  letter-spacing: .01em !important;
+  color: var(--dd-text) !important;
+  max-width: 100% !important;
+}
+html[data-docdeep="on"] .ds-markdown p { margin: .95em 0 !important; }
+/* 标题统一走衬线体，中文回退宋体 / 思源宋体 */
+html[data-docdeep="on"] .ds-markdown h1,
+html[data-docdeep="on"] .ds-markdown h2,
+html[data-docdeep="on"] .ds-markdown h3 {
+  font-family: var(--dd-font-serif) !important;
+  font-weight: 500 !important;
+  color: var(--dd-text) !important;
+}
+html[data-docdeep="on"] .ds-markdown h1 {
+  font-size: 25px !important; line-height: 1.45 !important; margin: 1.2em 0 .6em !important;
+  padding-bottom: .32em !important; border-bottom: 1px solid var(--dd-line) !important;
+  letter-spacing: -.01em !important;
+}
+html[data-docdeep="on"] .ds-markdown h2 {
+  font-size: 20px !important; line-height: 1.5 !important; margin: 1.15em 0 .5em !important;
+}
+html[data-docdeep="on"] .ds-markdown h2::before { content: "§ "; color: var(--dd-line-strong); font-weight: 400; }
+html[data-docdeep="on"] .ds-markdown h3 {
+  font-size: 17px !important; line-height: 1.55 !important; margin: 1em 0 .45em !important;
+  color: var(--dd-text-2) !important;
+}
+html[data-docdeep="on"] .ds-markdown ul, html[data-docdeep="on"] .ds-markdown ol {
+  padding-left: 1.6em !important; margin: .75em 0 !important;
+}
+html[data-docdeep="on"] .ds-markdown li { margin: .34em 0 !important; }
+html[data-docdeep="on"] .ds-markdown li::marker { color: var(--dd-brand); }
+html[data-docdeep="on"] .ds-markdown blockquote {
+  margin: 1.1em 0 !important; padding: 10px 16px !important;
+  border-left: 3px solid var(--dd-focus-line) !important;
+  background: var(--dd-focus-bg) !important; border-radius: 0 var(--dd-radius) var(--dd-radius) 0 !important;
+  color: var(--dd-focus-ink) !important;
+}
+html[data-docdeep="on"] .ds-markdown a { color: var(--dd-brand) !important; text-underline-offset: 3px; }
+html[data-docdeep="on"] .ds-markdown img { max-width: 100% !important; border-radius: var(--dd-radius) !important; }
+html[data-docdeep="on"] .ds-markdown hr { border: 0 !important; border-top: 1px dashed var(--dd-line) !important; margin: 2em 0 !important; }
+
+/* 表格：斑马线 + 粘头 */
+html[data-docdeep="on"] .ds-markdown table {
+  width: 100% !important; border-collapse: collapse !important;
+  font-size: 14.5px !important; line-height: 1.7 !important; margin: 1.1em 0 !important;
+  display: block !important; overflow-x: auto !important;
+}
+html[data-docdeep="on"] .ds-markdown thead th {
+  position: sticky; top: 0; background: var(--dd-surface-2) !important;
+}
+html[data-docdeep="on"] .ds-markdown th, html[data-docdeep="on"] .ds-markdown td {
+  border: 1px solid var(--dd-line) !important; padding: 8px 12px !important; text-align: left !important;
+}
+html[data-docdeep="on"] .ds-markdown tbody tr:nth-child(even) td { background: var(--dd-surface-2) !important; }
+
+/* 行内代码 vs 代码块 */
+html[data-docdeep="on"] .ds-markdown code {
+  font-family: "JetBrains Mono", Consolas, "Noto Sans Mono", monospace !important;
+}
+html[data-docdeep="on"] .ds-markdown :not(pre) > code {
+  background: var(--dd-surface-2) !important; border: 1px solid var(--dd-line) !important;
+  border-radius: var(--dd-radius-sm) !important; padding: 1px 6px !important;
+  font-size: .88em !important; color: var(--dd-focus-text) !important;
+}
+/* 整块代码走 --dd-code-* 双套令牌：浅色主题纸感浅底，墨色主题深墨底 */
+html[data-docdeep="on"] .ds-markdown pre,
+html[data-docdeep="on"] .md-code-block {
+  direction: ltr !important; text-align: left !important;
+  background: var(--dd-code-bg) !important; border-radius: var(--dd-radius) !important;
+  border: 1px solid var(--dd-code-line) !important;
+  margin: 1.1em 0 !important; overflow: auto !important;
+}
+html[data-docdeep="on"] .ds-markdown pre code {
+  background: transparent !important; color: var(--dd-code-ink) !important;
+  font-size: 13.5px !important; line-height: 1.75 !important;
+  display: block; padding: 14px 16px !important;
+}
+/* 代码头栏不动按钮，只换肤 */
+html[data-docdeep="on"] .md-code-block > div:first-child {
+  background: var(--dd-code-head-bg) !important; color: var(--dd-code-head-ink) !important;
+}
+
+/* 思考过程收成批注条（按钮是扩展注入的，不影响原文）
+ * 注意：以下 .ds-thinking / [data-thinking] 选择器在站点线上已无对应节点
+ * （2026-09-15 核验：站点真名为 .ds-think-content，main.js 中 ds-thinking / data-thinking 计数为 0），
+ * 故 tagThink() 自引入起未生效。死链路暂保留，清理需另开工单，见 docs/工单计划/隐藏思考正文-工单.md。 */
+html[data-docdeep="on"] .ds-thinking,
+html[data-docdeep="on"] [class*="ds-thinking"],
+html[data-docdeep="on"] [data-thinking] {
+  font-size: 13px !important; color: var(--dd-muted) !important;
+  background: var(--dd-surface-2) !important; border: 1px dashed var(--dd-line) !important;
+  border-radius: var(--dd-radius) !important; padding: 8px 12px !important; margin-bottom: 12px !important;
+}
+html[data-docdeep="on"] .doc-think-collapsed .ds-thinking-inner {
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+html[data-docdeep="on"] .doc-thinkbtn {
+  font-size: 12px;
+  color: var(--dd-text-2);
+  background: var(--dd-surface);
+  border: 1px solid var(--dd-line);
+  border-radius: 999px;
+  padding: 3px 12px;
+  cursor: pointer;
+  margin-bottom: 10px;
+  font-family: var(--dd-font);
+  transition: border-color var(--dd-dur-fast) var(--dd-ease), color var(--dd-dur-fast) var(--dd-ease), background-color var(--dd-dur-fast) var(--dd-ease);
+}
+html[data-docdeep="on"] .doc-thinkbtn:hover { border-color: var(--dd-line-strong); color: var(--dd-text); background: var(--dd-hover); }
+html[data-docdeep="on"] .doc-thinkbtn:focus-visible { outline: 2px solid var(--dd-line-strong); outline-offset: 2px; }
+
+/* 思考正文：只在「思考进行中」隐藏，思考结束后交还站点自身的收拢态（v0.3.36：收拢而非硬隐藏）
+ * 结构证据（fe-static main.js）：
+ *   · `.ds-think-content` 仅由 `pw` 组件渲染（全包 2 处 JSX，均在 `pS` 内），而 `pS` 只服务 think 片段
+ *     （useIsWIPThinking + useThinkFragment）→ 该容器**不与联网搜索/工具片段共用**，不会误伤。
+ *   · `pw` = <div class="ds-think-content">{icon}<div/>{片段 markdown}</div>，是**片段正文行**；
+ *     标题行（「正在思考」/「已思考（用时 N 秒）」）由独立的 useCollapsibleAreaTitle 产出，不在其内 ——
+ *     因此隐藏它不会带走标题行，气泡内只剩一行标题，视觉上即是收拢。
+ *   · 折叠容器 `.ds-collapsible-text`（max-height 过渡，JS 内联）defaultCollapsed=true；回答正文一出现，
+ *     站点立即收拢并把箭头变为可用（用户截图即此态），故本规则必须在该时刻让位。
+ * 时间窗判定：「气泡内有 .ds-think-content 且**无** .ds-assistant-message-main-content」＝思考进行中。
+ *   该谓词与站点自身代码一致（main.js 用同一 API 决定是否把气泡滚到顶部），属站点承认的状态划分。
+ *   旁证：docs/known-issues.md 的 Q-INFLATE-001 记录的正是「思考期 assistant 气泡无 AI_SEL」这一形态。
+ * 开关：<html data-doc-hidethink="on"> 由 00-runtime.js applyHideThink() 写入，关闭/停用扩展时移除属性即恢复原站。
+ * 文本口径不受影响：cleanTurnText 在 detached clone 上取 innerText，不经文档渲染树，导出/复制仍含思考原文。
+ * 已知残余：思考进行中若站点已渲染折叠箭头，此时点它无法展开（正文正被本规则隐藏）；回答开始后恢复正常。
+ * 失效条件：若站点改版为「思考期就预先渲染空的回答容器」，谓词失配（思考正文重新可见）；
+ *   届时改用 JS 打标（回答正文为空即视为思考中）兜底，见工单「风险与待实测项」。 */
+html[data-docdeep="on"][data-doc-hidethink="on"] .ds-message:has(.ds-think-content):not(:has(.ds-assistant-message-main-content)) .ds-think-content,
+html[data-docdeep="on"][data-doc-hidethink="on"] [data-message-id]:has(.ds-think-content):not(:has(.ds-assistant-message-main-content)) .ds-think-content {
+  display: none !important;
+}
+
+/* 操作条弱化但可点 */
+html[data-docdeep="on"] .ds-message:has(.ds-assistant-message-main-content) button { opacity: .72; }
+html[data-docdeep="on"] .ds-message:has(.ds-assistant-message-main-content) button:hover { opacity: 1; }

@@ -1,0 +1,238 @@
+/* ---------- 右侧大纲 ---------- */
+html[data-docdeep="on"] #docdeep-outline {
+  position: fixed;
+  top: 76px;
+  right: 16px;
+  width: 232px;
+  max-height: 66vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--dd-surface);
+  border: 1px solid var(--dd-line);
+  border-radius: var(--dd-radius-lg);
+  box-shadow: var(--dd-shadow);
+  padding: 0;
+  z-index: var(--dd-z);
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--dd-text-2);
+  font-family: var(--dd-font);
+  overflow: hidden;
+}
+html[data-docdeep="on"] #docdeep-outline h4 {
+  margin: 0;
+  padding: 11px 12px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--dd-text);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid var(--dd-line);
+  background: var(--dd-surface-2);
+}
+html[data-docdeep="on"] #docdeep-outline h4 > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+html[data-docdeep="on"] #docdeep-outline h4 button {
+  flex: none;
+  border: 1px solid var(--dd-line);
+  background: var(--dd-surface);
+  border-radius: var(--dd-radius-sm);
+  font-size: 11px;
+  color: var(--dd-text-2);
+  cursor: pointer;
+  padding: 3px 9px;
+  font-family: var(--dd-font);
+  transition: background-color var(--dd-dur-fast) var(--dd-ease), border-color var(--dd-dur-fast) var(--dd-ease), color var(--dd-dur-fast) var(--dd-ease);
+}
+html[data-docdeep="on"] #docdeep-outline h4 button:hover {
+  border-color: var(--dd-line-strong);
+  background: var(--dd-hover);
+  color: var(--dd-text);
+}
+html[data-docdeep="on"] #docdeep-outline h4 button:focus-visible {
+  outline: 2px solid var(--dd-line-strong);
+  outline-offset: 2px;
+}
+/* 过滤框 + 补全按钮：工具区 */
+html[data-docdeep="on"] #docdeep-outline .doc-ol-filter {
+  display: block;
+  width: calc(100% - 24px);
+  margin: 10px 12px 0;
+  box-sizing: border-box;
+  border: 1px solid var(--dd-line);
+  border-radius: var(--dd-radius-sm);
+  padding: 6px 10px;
+  font-size: 12px;
+  line-height: 1.6;
+  font-family: var(--dd-font);
+  color: var(--dd-text);
+  background: var(--dd-surface-2);
+  outline: none;
+  transition: border-color var(--dd-dur-base) var(--dd-ease), box-shadow var(--dd-dur-base) var(--dd-ease);
+}
+html[data-docdeep="on"] #docdeep-outline .doc-ol-filter::placeholder { color: var(--dd-muted); }
+html[data-docdeep="on"] #docdeep-outline .doc-ol-filter:hover { border-color: var(--dd-line-strong); }
+/* 聚焦时长出一圈 3px 的强调色柔光环（标志性细节） */
+html[data-docdeep="on"] #docdeep-outline .doc-ol-filter:focus {
+  border-color: var(--dd-line-strong);
+  box-shadow: 0 0 0 3px var(--dd-accent-soft);
+}
+html[data-docdeep="on"] #docdeep-outline .doc-ol-complete {
+  display: block;
+  width: calc(100% - 24px);
+  margin: 8px 12px 0;
+  box-sizing: border-box;
+  border: 1px solid var(--dd-line);
+  border-radius: var(--dd-radius-sm);
+  padding: 6px 10px;
+  font-size: 12px;
+  line-height: 1.6;
+  font-family: var(--dd-font);
+  color: var(--dd-text-2);
+  background: var(--dd-surface-2);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color var(--dd-dur-fast) var(--dd-ease), color var(--dd-dur-fast) var(--dd-ease), background-color var(--dd-dur-fast) var(--dd-ease);
+}
+html[data-docdeep="on"] #docdeep-outline .doc-ol-complete:hover:not(:disabled) {
+  border-color: var(--dd-line-strong);
+  background: var(--dd-hover);
+  color: var(--dd-text);
+}
+html[data-docdeep="on"] #docdeep-outline .doc-ol-complete:disabled {
+  color: var(--dd-muted);
+  background: var(--dd-surface-sunken);
+  border-color: var(--dd-line);
+  cursor: default;
+}
+html[data-docdeep="on"] #docdeep-outline .doc-ol-complete:focus-visible {
+  outline: 2px solid var(--dd-line-strong);
+  outline-offset: 2px;
+}
+/* 勾选栏 */
+html[data-docdeep="on"] #docdeep-outline .doc-ol-selbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 8px 12px 0;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--dd-line);
+}
+html[data-docdeep="on"] #docdeep-outline .doc-ol-selbtn {
+  flex: 1 1 auto;
+  border: 1px solid var(--dd-line);
+  background: var(--dd-surface);
+  border-radius: var(--dd-radius-sm);
+  font-size: 11.5px;
+  color: var(--dd-text-2);
+  cursor: pointer;
+  padding: 4px 8px;
+  white-space: nowrap;
+  font-family: var(--dd-font);
+  transition: border-color var(--dd-dur-fast) var(--dd-ease), color var(--dd-dur-fast) var(--dd-ease), background-color var(--dd-dur-fast) var(--dd-ease);
+}
+html[data-docdeep="on"] #docdeep-outline .doc-ol-selbtn:hover:not(:disabled) {
+  border-color: var(--dd-line-strong);
+  background: var(--dd-hover);
+  color: var(--dd-text);
+}
+html[data-docdeep="on"] #docdeep-outline .doc-ol-selbtn:disabled {
+  color: var(--dd-muted);
+  background: var(--dd-surface-sunken);
+  cursor: not-allowed;
+}
+html[data-docdeep="on"] #docdeep-outline .doc-ol-selbtn:focus-visible {
+  outline: 2px solid var(--dd-line-strong);
+  outline-offset: 2px;
+}
+/* 列表 */
+html[data-docdeep="on"] #docdeep-outline .doc-ol-list {
+  flex: 1 1 auto;
+  overflow: auto;
+  padding: 8px 6px 10px;
+  scrollbar-width: thin;
+}
+html[data-docdeep="on"] #docdeep-outline .doc-ol-list::-webkit-scrollbar { width: 8px; }
+html[data-docdeep="on"] #docdeep-outline .doc-ol-list::-webkit-scrollbar-thumb {
+  background: var(--dd-scrollbar-thumb);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+html[data-docdeep="on"] .doc-ol-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  padding: 5px 8px;
+  border-radius: var(--dd-radius-sm);
+  font-size: 12px;
+  line-height: 1.55;
+  color: inherit;
+  font-family: var(--dd-font);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background-color var(--dd-dur-fast) var(--dd-ease), color var(--dd-dur-fast) var(--dd-ease);
+}
+html[data-docdeep="on"] .doc-ol-item:hover { background: var(--dd-hover); color: var(--dd-text); }
+html[data-docdeep="on"] .doc-ol-item:focus-visible {
+  outline: 2px solid var(--dd-line-strong);
+  outline-offset: -2px;
+}
+html[data-docdeep="on"] .doc-ol-item.active {
+  background: var(--dd-brand-weak) !important;
+  color: var(--dd-brand-strong) !important;
+  font-weight: 600;
+}
+html[data-docdeep="on"] .doc-ol-q { font-weight: 600; color: var(--dd-text); }
+html[data-docdeep="on"] .doc-ol-pending { opacity: .62; }
+html[data-docdeep="on"] .doc-ol-h2 { padding-left: 20px; }
+html[data-docdeep="on"] .doc-ol-h3 { padding-left: 30px; color: var(--dd-muted); }
+html[data-docdeep="on"] #docdeep-outline .doc-ol-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  border-radius: var(--dd-radius-sm);
+}
+html[data-docdeep="on"] #docdeep-outline .doc-ol-row:hover { background: var(--dd-hover); }
+html[data-docdeep="on"] #docdeep-outline .doc-ol-row .doc-ol-item { flex: 1; min-width: 0; }
+html[data-docdeep="on"] #docdeep-outline .doc-ol-row .doc-ol-item:hover { background: none; }
+html[data-docdeep="on"] #docdeep-outline .doc-ol-check {
+  flex: none;
+  accent-color: var(--dd-brand);
+  margin: 0 0 0 6px;
+  width: 13px;
+  height: 13px;
+  cursor: pointer;
+}
+html[data-docdeep="on"] #docdeep-outline .doc-ol-check:focus-visible {
+  outline: 2px solid var(--dd-line-strong);
+  outline-offset: 1px;
+}
+html[data-docdeep="on"] #docdeep-outline .doc-ol-empty {
+  padding: 14px 10px;
+  color: var(--dd-muted);
+  font-size: 12px;
+  text-align: center;
+  background: var(--dd-surface-sunken);
+  border-radius: var(--dd-radius-sm);
+  margin: 2px 6px;
+}
+html[data-docdeep="on"] #docdeep-outline.doc-ol-collapsed .doc-ol-list,
+html[data-docdeep="on"] #docdeep-outline.doc-ol-collapsed .doc-ol-selbar,
+html[data-docdeep="on"] #docdeep-outline.doc-ol-collapsed .doc-ol-complete,
+html[data-docdeep="on"] #docdeep-outline.doc-ol-collapsed .doc-ol-filter { display: none; }
+
+/* ---------- 隐藏官网自带目录(NATIVE-NAV-HIDE-001) ----------
+   开关开启时, content 内容脚本经只读探测在原生目录容器(含纯包裹祖先)上打 data-docnavhide="1",
+   此处收起; 摘除标记即恢复, 不改动原生节点其它任何样式。 */
+html[data-docdeep="on"] [data-docnavhide="1"] { display: none !important; }

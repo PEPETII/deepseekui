@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "deepseek ui",
-  "version": "0.3.26",
+  "version": "0.3.37",
   "description": "把 DeepSeek 网页版重排为中文文档工作台：阅读、搜索、导出和本地收藏。纯本地增强，保留原生表单发送链路。",
   "minimum_chrome_version": "109",
   "permissions": ["storage", "downloads"],
@@ -9,8 +9,35 @@
   "content_scripts": [
     {
       "matches": ["https://chat.deepseek.com/*"],
-      "js": ["rich-model.js", "queue.js", "content.js"],
-      "css": ["content.css"],
+      "js": [
+        "rich-model.js",
+        "content.parts/00-runtime.js",
+        "content.parts/01-turns.js",
+        "content.parts/02-shell.js",
+        "content.parts/03-rich-model.js",
+        "content.parts/04-rich-editor.js",
+        "content.parts/05-markdown-formatting.js",
+        "content.parts/06-shared-utils.js",
+        "content.parts/07-addtobox.js",
+        "content.parts/08-find.js",
+        "content.parts/09-export.js",
+        "content.parts/10-native-outline.js",
+        "content.parts/11-outline.js",
+        "content.parts/12-navigation.js",
+        "content.parts/13-entry.js"
+      ],
+      "css": [
+        "content.parts/00-foundation.css",
+        "content.parts/01-reading.css",
+        "content.parts/02-composer-rich.css",
+        "content.parts/03-formatting.css",
+        "content.parts/04-shell.css",
+        "content.parts/05-dock.css",
+        "content.parts/06-find.css",
+        "content.parts/07-outline.css",
+        "content.parts/08-feedback-dialogs.css",
+        "content.parts/09-responsive-print.css"
+      ],
       "run_at": "document_idle",
       "all_frames": false
     }

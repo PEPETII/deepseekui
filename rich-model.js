@@ -1,5 +1,5 @@
 /* deepseek ui - 本地富文本模型
- * 无 DOM / 无网络 / 无第三方依赖；供 content.js 的富文本表面与 Node 测试共用。
+ * 无 DOM / 无网络 / 无第三方依赖；供 content.parts 的富文本表面与 Node 测试共用。
  * 模型以 block + inline runs 表示，textarea 仍保存 Markdown。
  */
 (() => {

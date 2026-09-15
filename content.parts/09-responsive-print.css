@@ -1,0 +1,64 @@
+/* ---------- 窄屏适配 ---------- */
+@media (max-width: 1280px) {
+  html[data-docdeep="on"] #docdeep-outline {
+    display: none;
+    top: 64px;
+    right: 12px;
+    width: min(86vw, 320px);
+    max-height: 66vh;
+  }
+  html[data-docdeep="on"] #docdeep-outline.doc-ol-mobile-open { display: flex; }
+  html[data-docdeep="on"] #docdeep-dock { right: 12px; bottom: 12px; max-width: calc(100vw - 24px); }
+  html[data-docdeep="on"] #docdeep-tools { padding: 6px; }
+  html[data-docdeep="on"] #docdeep-tools button { font-size: 11.5px; padding: 6px 9px; }
+  html[data-docdeep="on"] #docdeep-keys-help { bottom: 16px; }
+}
+@media (max-width: 720px) {
+  html[data-docdeep="on"] #docdeep-dock { left: 12px; right: 12px; max-width: none; align-items: stretch; }
+  html[data-docdeep="on"] #docdeep-tools .doc-tools-row { justify-content: flex-start; }
+  html[data-docdeep="on"] #docdeep-tools .doc-tools-meta { justify-content: flex-start; }
+  html[data-docdeep="on"] #docdeep-formatbar {
+    max-width: calc(100vw - 16px);
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    border-radius: var(--dd-radius);
+  }
+}
+
+/* ---------- 打印: 只留纸，侧栏/顶栏/工具条/输入框全部隐藏 ---------- */
+@media print {
+  html[data-docdeep="on"] body { background: #fff !important; }
+  html[data-docdeep="on"] [data-docshell="side"],
+  html[data-docdeep="on"] aside,
+  html[data-docdeep="on"] header,
+  html[data-docdeep="on"] #docdeep-outline,
+  html[data-docdeep="on"] #docdeep-dock,
+  html[data-docdeep="on"] #docdeep-rich-editor,
+  html[data-docdeep="on"] #docdeep-formatbar,
+  html[data-docdeep="on"] #docdeep-addtobox,
+  html[data-docdeep="on"] #docdeep-tools,
+  html[data-docdeep="on"] #docdeep-count,
+  html[data-docdeep="on"] #docdeep-ver,
+  html[data-docdeep="on"] #docdeep-toast,
+  html[data-docdeep="on"] #docdeep-find,
+  html[data-docdeep="on"] #docdeep-export-progress,
+  html[data-docdeep="on"] #docdeep-export-dialog,
+  html[data-docdeep="on"] #docdeep-keys-help,
+  html[data-docdeep="on"] body form:has(textarea) { display: none !important; }
+  html[data-docdeep="on"] .ds-message:has(.ds-assistant-message-main-content) {
+    box-shadow: none !important; border-color: #ddd !important;
+  }
+  html[data-docdeep="on"] .ds-message,
+  html[data-docdeep="on"] [data-docturn] { max-width: 100% !important; padding-left: 0 !important; padding-right: 0 !important; }
+  /* 打印时不带查找高亮，回归干净文档 */
+  html[data-docdeep="on"] .docdeep-find-mark {
+    background: transparent !important;
+    color: inherit !important;
+    outline: none !important;
+  }
+  html[data-docdeep="on"]::highlight(docdeep-find),
+  html[data-docdeep="on"]::highlight(docdeep-find-active) {
+    background-color: transparent;
+    color: inherit;
+  }
+}
