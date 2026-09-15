@@ -233,3 +233,19 @@
   涉及三份 CSS 与打印样式，属独立视觉缺陷链，需另开工单。
 - 可复用核验手法：抓 `main.<hash>.{js,css}` 后用 node 正则探针反查，**存在性判定最有效**
   （例：`(src.match(/"form"/g) || []).length === 0` → 该结构不存在）；流程见 `docdeep-popup-verify` 技能 Step 0。
+
+## THINK-AUTO-001 「回答开始后站点会自行收拢思考区」结论有误，站点从不自动折叠（2026-09-15 复核，v0.3.38 修复）
+
+- 更正对象：本文档 THINK-SEL-001 条目中的站点侧事实第 211 行：『回答正文开始输出后切「已思考（用时 N 秒）」并折叠』。
+  前半句（标题文案切换）正确；后半句（并折叠）**错误**。
+- 复核证据（main.9199a2404f.js 与原审计同 hash，未换版）：可折叠组容器 mi 组件
+  `[l,d]=(0,ep.useState)(!0)` —— isShowDetail 初始展开，全文仅标题行 onToggle（`d(e=>!e)`）一处翻转，
+  不存在任何「回答出现后自动 d(false)」的 effect；折叠时片段整体卸载（`(l?i:[]).map`）。
+  另：THINK 片段（pS/pw → .ds-think-content）不经 .ds-collapsible-text，gC（collapsedHeight:192、
+  defaultCollapsed）只包超长回答正文，与思考区无关。
+- 后果：v0.3.36「隐藏思考正文」的 CSS 时间窗规则在回答正文挂载后让位，预期站点接管收拢落空，
+  思考正文长驻展开（用户报障现象）。
+- 修复（v0.3.38）：content.parts/01-turns.js 新增 autoCollapseThink() —— 回答正文挂载且思考片段仍挂载时，
+  对组容器（内联 --collapsible-area-title-height 锚点）的 firstElementChild（原生标题行）转发一次 click，
+  复用站点折叠状态机；WeakSet + key 计数 + isTrusted 接管监听三重防重入。详见
+  docs/工单计划/思考自动收拢-工单.md 与 docs/完成报告/思考自动收拢-完成报告.md。

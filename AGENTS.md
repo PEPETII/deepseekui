@@ -6,7 +6,7 @@
 
 Manifest V3 纯本地 Chrome 扩展，把 `https://chat.deepseek.com/*` 重排为中文文档工作台：阅读排版、右侧大纲、会话内查找、全量导出（MD/JSON）、打印、本地收藏。原则：只打标 + 注入可摘除 UI，不移动原生 textarea/form/发送按钮，不读 token/cookie，不调私有 API，不改 fetch（见 `content.parts/00-runtime.js` 文件头）。富文本输入是明确例外：保留原生 textarea/form/发送按钮节点及归属，在 textarea 上方挂载本地 contenteditable 表面，把内容序列化回原生 textarea（写值走平台原型上的原生 setter，否则 React 受控值追踪会判定「值未变」而不触发 onChange），并把 Enter 以原生键盘事件转发给该 textarea，交回站点自身的 `onKeyDown` 处理——站点 composer 无 `form`、发送按钮是 `div[role=button]`，故扩展不猜测按钮语义；该突破见 `docs/工单计划/Phase-6-WYSIWYG.md` 与 `docs/工单计划/Enter发送转发-工单.md`。对话队列（Phase-7）已于 v0.3.27 下线（见 `docs/工单计划/删除队列-工单.md`）。
 
-当前版本：`0.3.37`（`manifest.json` / `popup.parts/00-core.js:POPUP_VER` / `content.parts/00-runtime.js:VERSION` 三处必须同步；`popup.html` 徽标为第 4 处展示位，改版时一并检查）。
+当前版本：`0.3.38`（`manifest.json` / `popup.parts/00-core.js:POPUP_VER` / `content.parts/00-runtime.js:VERSION` 三处必须同步；`popup.html` 徽标为第 4 处展示位，改版时一并检查）。
 
 ## 项目架构
 

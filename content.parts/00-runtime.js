@@ -15,7 +15,7 @@
   const AI_SEL = '.ds-markdown.ds-assistant-message-main-content, .ds-assistant-message-main-content';
   const THINK_SEL = '.ds-thinking, [class*="ds-thinking"], [data-thinking]';
   const USER_COLLAPSE_LEN = 420;
-  const VERSION = '0.3.37';
+  const VERSION = '0.3.38';
   const DEFAULTS = { docdeep_enabled: true, docdeep_width: 880, docdeep_font: 17, docdeep_theme: 'mi', docdeep_outline: true, docdeep_keys: true, docdeep_hide_native: false, docdeep_format: true, docdeep_addtobox: true, docdeep_hide_think: true };
 
   let lastUrl = location.href;
@@ -135,6 +135,8 @@
       qOrder = [];
       qInfo = new Map();
       liveElByKey = new Map();
+      // THINK-AUTO-COLLAPSE: 关闭即清空, 重开后按新会话语义重新收拢
+      try { thinkCollapseState.clear(); } catch {}
       // Phase-3: 选中态与 qOrder 同命,关闭即清空,重开为全量
       selectedQKeys = null;
       outlineSearchToken++;

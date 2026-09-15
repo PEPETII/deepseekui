@@ -226,8 +226,10 @@ html[data-docdeep="on"] .doc-thinkbtn:focus-visible { outline: 2px solid var(--d
  *   · `pw` = <div class="ds-think-content">{icon}<div/>{片段 markdown}</div>，是**片段正文行**；
  *     标题行（「正在思考」/「已思考（用时 N 秒）」）由独立的 useCollapsibleAreaTitle 产出，不在其内 ——
  *     因此隐藏它不会带走标题行，气泡内只剩一行标题，视觉上即是收拢。
- *   · 折叠容器 `.ds-collapsible-text`（max-height 过渡，JS 内联）defaultCollapsed=true；回答正文一出现，
- *     站点立即收拢并把箭头变为可用（用户截图即此态），故本规则必须在该时刻让位。
+ *   · 折叠容器 `.ds-collapsible-text`（max-height 过渡，JS 内联）。注意（v0.3.38 bundle 复核）：
+ *     组级折叠状态 isShowDetail 初始 true 且仅标题行手动点击可翻转，站点**不会**在回答出现后自行收拢
+ *     （推翻本工单原结论）；真正的收拢由 content.parts/01-turns.js 的 autoCollapseThink() 代点原生标题行完成，
+ *     故本规则必须在该时刻让位。
  * 时间窗判定：「气泡内有 .ds-think-content 且**无** .ds-assistant-message-main-content」＝思考进行中。
  *   该谓词与站点自身代码一致（main.js 用同一 API 决定是否把气泡滚到顶部），属站点承认的状态划分。
  *   旁证：docs/known-issues.md 的 Q-INFLATE-001 记录的正是「思考期 assistant 气泡无 AI_SEL」这一形态。

@@ -283,6 +283,8 @@
       outlineDirty = true;
       // Phase-3: 选中态与 qOrder 同命,URL 切换即清空
       selectedQKeys = null;
+      // THINK-AUTO-COLLAPSE: 新会话的 message key 重新计数
+      thinkCollapseState.clear();
     }
     probeShell();
     applyNativeNavHide(); // NATIVE-NAV-HIDE-001: 容器重挂后每轮重打标(探测 5s 缓存)
@@ -319,6 +321,8 @@
     });
     const orderChanged = turns.length !== lastTurnOrder.length
       || turns.some((el, index) => el !== lastTurnOrder[index]);
+    // THINK-AUTO-COLLAPSE: 回答正文已挂载且思考片段仍展开的回答, 代点一次原生标题行收拢
+    try { autoCollapseThink(turns); } catch {}
     const reg = updateQuestionRegistry(turns);
     // Q-INFLATE-001 自愈: 本轮前已污染的赝 Q(旧版本误入)就地摘除, 无需刷新
     const pruned = pruneBogusQuestions();

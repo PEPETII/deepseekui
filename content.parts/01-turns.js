@@ -122,6 +122,67 @@
     think.before(btn);
   }
 
+  // ---- THINK-AUTO-COLLAPSE(v0.3.38): 思考区随回答正文出现自动收拢 ----
+  // 站点证据(main.9199a2404f.js @487596/@476014/@527700, 2026-09-15 复核):
+  //   · 可折叠组容器 mi: [l,d]=useState(!0) —— isShowDetail 初始展开, 仅标题行 onClick(onToggle) 翻转,
+  //     无任何「回答开始后自动 d(false)」的 effect → 站点不会自行收拢(推翻 known-issues 旧行 211 结论)。
+  //   · 标题行 pj: onClick={e=>{e.stopPropagation(),o()}}; 折叠后片段整体卸载((l?i:[]).map),
+  //     故「.ds-think-content 仍挂载」= 处于展开态; 收拢后该节点随之消失。
+  //   · THINK 片段经 pS/pw 渲染为裸 .ds-think-content, 不经 .ds-collapsible-text(gC 只包超长回答正文)。
+  //   · 组容器带内联 CSS 变量 --collapsible-area-title-height(站点粘性标题用), 作运行时结构锚点。
+  // 策略: 回答正文(.ds-assistant-message-main-content)挂载后, 对原生标题行转发一次 click,
+  // 完全复用站点折叠状态/动画/埋点, 不自建第二套按钮。三重防重入:
+  //   1) thinkClickEls: 同一标题行元素只代点一次(WeakSet, 同挂载周期);
+  //   2) thinkCollapseState: 按 message key 记尝试次数(≤3, 结构未匹配时止损)或 'user'(用户接管);
+  //   3) 用户真实点击(isTrusted)标题行 → 记 'user', 此后(含虚拟列表重挂)永不再代点。
+  const THINK_GROUP_SEL = '[style*="--collapsible-area-title-height"]';
+  const thinkClickEls = new WeakSet();
+  const thinkCollapseState = new Map(); // key -> 'user' | attempts(number), URL 切换清空
+  document.addEventListener('click', (e) => {
+    try {
+      if (!e.isTrusted || !isOn()) return; // 本扩展的合成 click(isTrusted=false)不会走到这里; 关闭时不接管
+      const group = e.target?.closest?.(THINK_GROUP_SEL);
+      if (!group) return;
+      const row = group.firstElementChild;
+      if (!row || !row.contains(e.target)) return; // 只认标题行点击(含右侧箭头), 片段内点击不接管
+      const msg = group.closest(TURN_SEL);
+      if (!msg) return;
+      const key = keyForTurnEl(msg, 'assistant', turnText(msg));
+      if (key) thinkCollapseState.set(key, 'user');
+    } catch {}
+  }, true);
+
+  function thinkTitleRowOf(thinkEl) {
+    const group = thinkEl.closest(THINK_GROUP_SEL);
+    if (!group) return null;
+    const row = group.firstElementChild;
+    if (!row || row.contains(thinkEl)) return null;
+    // 站点渲染顺序: 标题行 → topRef → 片段; 标题行必须位于片段之前
+    if (!(row.compareDocumentPosition(thinkEl) & Node.DOCUMENT_POSITION_FOLLOWING)) return null;
+    return row;
+  }
+
+  function autoCollapseThink(turns) {
+    if (settings.docdeep_hide_think === false) return; // 关闭「隐藏思考过程」= 完全交还站点原生行为
+    for (const el of turns) {
+      if (el.getAttribute('data-docrole') === 'user') continue;
+      const think = el.querySelector('.ds-think-content');
+      if (!think) continue;                    // 已收拢(片段卸载)或本条无思考片段
+      if (!el.querySelector(AI_SEL)) continue; // 思考进行中: 维持现状, 等回答正文出现
+      const key = keyForTurnEl(el, 'assistant', turnText(el));
+      const st = thinkCollapseState.get(key);
+      if (st === 'user') continue;             // 用户手动接管, 永不代点
+      const attempts = typeof st === 'number' ? st : 0;
+      if (attempts >= 3) continue;             // 结构不匹配止损, 避免 classify 每轮空转
+      const row = thinkTitleRowOf(think);
+      if (!row) { thinkCollapseState.set(key, attempts + 1); continue; }
+      if (thinkClickEls.has(row)) continue;    // 同一标题行元素只代点一次
+      thinkClickEls.add(row);
+      thinkCollapseState.set(key, attempts + 1);
+      row.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+    }
+  }
+
   // ---- 稳定提问注册表(修复虚拟列表只挂载子集导致的 Q3-Q1-Q2) ----
   // key 优先 data-message-id, 否则 u:/a: + 文本哈希; 用户问文本稳定, 可跨复用/滚动保持同一 key。
   function keyForTurnEl(el, role, text) {
