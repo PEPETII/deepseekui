@@ -1,4 +1,5 @@
 # DeepSeek UI
+<img width="2372" height="1155" alt="1" src="https://github.com/user-attachments/assets/5a9dc2d4-509a-40ad-b89d-f97c77f1d976" />
 
 Manifest V3 纯本地 Chrome 扩展，把 `https://chat.deepseek.com/*` 重排为中文文档工作台：阅读排版、右侧大纲、会话内查找、全量导出、打印、本地收藏。
 
