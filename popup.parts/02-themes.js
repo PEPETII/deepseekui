@@ -1,13 +1,14 @@
 // ---- 外观模板（「模板」分区）----
-// 模板 = 对纸张主题档位（docdeep_theme）的具名预设。当前只开两档：
-// 橙色（= 现有默认外观 mi）/ 深色（= 墨色 mo）。纯白 bai 仍是「阅读」里的档位，不占模板位。
+// 模板 = 对纸张主题档位（docdeep_theme）的具名预设。当前只开一档：
+// 橙色（= 现有默认外观 mi）。纯白 bai / 墨色 mo 只在「阅读」下拉可达，不占模板位（深色卡已于 v0.3.40 下线）。
 // 新增模板只需往这里加一项 + 在 popup.html 加一张 .skin 卡，不动主题机制。
 const TEMPLATES = [
   { id: 'mi', name: '橙色', desc: '当前外观 · 米黄纸面 + 赤陶点睛' },
-  { id: 'mo', name: '深色', desc: '墨色纸面 · 低亮度阅读不刺眼' },
 ];
+// 合法纸张主题档位全集（含仅下拉可达的 bai/mo）：applyTheme 白名单以此为准，不以 TEMPLATES 为准
+const THEME_SLOTS = ['mi', 'bai', 'mo'];
 
-// 纯函数：当前主题命中的模板 id；未命中（如 bai 或脏数据）返回 null —— 不选任何卡，而不是错误高亮
+// 纯函数：当前主题命中的模板 id；未命中（如 bai/mo 或脏数据）返回 null —— 不选任何卡，而不是错误高亮
 function activeTemplate(theme) {
   const t = String(theme ?? '');
   return TEMPLATES.some(item => item.id === t) ? t : null;
@@ -28,7 +29,7 @@ function paintTemplates(theme) {
 // 即时应用主题：popup 自身换肤 + 落盘 + 通知内容脚本；模板卡与「阅读」的下拉共用这一条路径
 async function applyTheme(value, note) {
   const theme = String(value ?? '');
-  if (!TEMPLATES.some(item => item.id === theme) && theme !== 'bai') return false;
+  if (!THEME_SLOTS.includes(theme)) return false;
   document.documentElement.dataset.theme = (theme === 'mo') ? 'dark' : 'light';
   paintTemplates(theme);
   try { $('theme').value = theme; } catch {} // 反向同步下拉，避免两个入口显示不一致
@@ -68,6 +69,7 @@ function paint(s) {
   $('theme').value = s.docdeep_theme;
   document.documentElement.dataset.theme = (s.docdeep_theme === 'mo') ? 'dark' : 'light'; // 深色分支跟随页面墨色主题
   paintTemplates(s.docdeep_theme); // 模板卡选中态与下拉保持一致，改任一处两边同步
+  if (typeof paintBackgroundConfig === 'function') paintBackgroundConfig(s[BACKGROUND_KEY]);
   $('tip').textContent = (s.docdeep_enabled !== false)
 
     ? '已启用。关闭后页面即恢复原站，无需刷新。'

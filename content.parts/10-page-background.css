@@ -1,0 +1,67 @@
+/* ---------- DeepSeek 主页面统一大背景（内置默认 PNG + 自定义上传图） ---------- */
+html[data-docdeep="on"]:has(#docdeep-page-background) {
+  isolation: isolate;
+}
+html[data-docdeep="on"] #docdeep-page-background {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-color: transparent;
+  background-image: var(--docdeep-page-background-image, none);
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
+  opacity: .40;
+}
+/* 自定义 data URL 通过 img.src 承载，避免大图片进入 CSS 自定义属性后触发浏览器值长度限制。 */
+html[data-docdeep="on"] #docdeep-page-background > .docdeep-page-background-image {
+  display: block;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center center;
+  pointer-events: none;
+}
+html[data-docdeep="on"] #docdeep-page-background > .docdeep-page-background-image[hidden] {
+  display: none;
+}
+html[data-docdeep="on"]:has(#docdeep-page-background) body {
+  background: transparent !important;
+}
+/* 兼容当前工作区已有的 data-docsurface="page" 纸面标记：只让主阅读外层有限透出背景，
+   消息卡、代码块、输入框、侧栏和浮层仍保持各自不透明纸面。 */
+html[data-docdeep="on"]:has(#docdeep-page-background) [data-docsurface="page"] {
+  background-color: rgba(248, 247, 244, .80) !important;
+}
+html[data-docdeep="on"][data-doctheme="bai"]:has(#docdeep-page-background) [data-docsurface="page"] {
+  background-color: rgba(251, 251, 249, .80) !important;
+}
+html[data-docdeep="on"][data-doctheme="mo"]:has(#docdeep-page-background) [data-docsurface="page"] {
+  background-color: rgba(21, 22, 26, .84) !important;
+}
+/* 区域1顶栏（the-header / data-docshell="header"）：背景存在时完全透明，直接透出页面背景；
+   无背景或关闭时回落 04-shell.css 原规则（.92 + blur）。 */
+html[data-docdeep="on"]:has(#docdeep-page-background) [data-docshell="header"],
+html[data-docdeep="on"]:has(#docdeep-page-background) header {
+  background-color: transparent !important;
+  backdrop-filter: blur(8px);
+}
+html[data-docdeep="on"][data-doctheme="bai"]:has(#docdeep-page-background) [data-docshell="header"],
+html[data-docdeep="on"][data-doctheme="bai"]:has(#docdeep-page-background) header {
+  background-color: transparent !important;
+  backdrop-filter: blur(8px);
+}
+html[data-docdeep="on"][data-doctheme="mo"]:has(#docdeep-page-background) [data-docshell="header"],
+html[data-docdeep="on"][data-doctheme="mo"]:has(#docdeep-page-background) header {
+  background-color: transparent !important;
+  backdrop-filter: blur(8px);
+}
+
+/* ---------- 打印：背景不进入文档输出 ---------- */
+@media print {
+  html[data-docdeep="on"] #docdeep-page-background { display: none !important; }
+  html[data-docdeep="on"]:has(#docdeep-page-background) body { background: #fff !important; }
+}

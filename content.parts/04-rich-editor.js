@@ -244,7 +244,7 @@
     const textareaInput = () => syncRichFromTextarea(binding);
     const events = [
       ['focus', observe], ['keyup', observe], ['mouseup', observe], ['click', observe],
-      ['beforeinput', beforeinput], ['input', input], ['compositionstart', compositionstart],
+      ['keydown', keydown], ['beforeinput', beforeinput], ['input', input], ['compositionstart', compositionstart],
       ['compositionend', compositionend],
     ];
     events.forEach(([type, handler]) => editor.addEventListener(type, handler));

@@ -15,8 +15,8 @@
   const AI_SEL = '.ds-markdown.ds-assistant-message-main-content, .ds-assistant-message-main-content';
   const THINK_SEL = '.ds-thinking, [class*="ds-thinking"], [data-thinking]';
   const USER_COLLAPSE_LEN = 420;
-  const VERSION = '0.3.38';
-  const DEFAULTS = { docdeep_enabled: true, docdeep_width: 880, docdeep_font: 17, docdeep_theme: 'mi', docdeep_outline: true, docdeep_keys: true, docdeep_hide_native: false, docdeep_format: true, docdeep_addtobox: true, docdeep_hide_think: true };
+  const VERSION = '0.3.48';
+  const DEFAULTS = { docdeep_enabled: true, docdeep_width: 880, docdeep_font: 17, docdeep_theme: 'mi', docdeep_outline: true, docdeep_keys: true, docdeep_hide_native: false, docdeep_format: true, docdeep_addtobox: true, docdeep_hide_think: true, docdeep_template_background: { enabled: true, dataUrl: '', mimeType: '', name: '', size: 0, width: 0, height: 0 } };
 
   let lastUrl = location.href;
   let scheduled = false;
@@ -99,6 +99,7 @@
       root.setAttribute(THEME_ATTR, settings.docdeep_theme);
       root.dataset.docdeepVer = VERSION;
       applyHideThink();
+      syncPageBackground();
     } else {
       root.removeAttribute(ATTR);
       root.removeAttribute(THEME_ATTR);
@@ -106,6 +107,7 @@
       delete root.dataset.docdeepVer;
       root.style.removeProperty('--doc-paper-w');
       root.style.removeProperty('--doc-font');
+      removePageBackground();
       removeFormattingToolbar();
       removeAddToBoxButton();
       document.querySelectorAll('.' + INJECTED).forEach(n => n.remove());

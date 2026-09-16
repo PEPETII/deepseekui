@@ -41,7 +41,7 @@
   chrome.storage.onChanged.addListener((chg, area) => {
     if (area !== 'local') return;
     const next = {};
-    ['docdeep_enabled', 'docdeep_width', 'docdeep_font', 'docdeep_theme', 'docdeep_outline', 'docdeep_keys', 'docdeep_hide_native', 'docdeep_format', 'docdeep_addtobox', 'docdeep_hide_think'].forEach(k => {
+    ['docdeep_enabled', 'docdeep_width', 'docdeep_font', 'docdeep_theme', 'docdeep_outline', 'docdeep_keys', 'docdeep_hide_native', 'docdeep_format', 'docdeep_addtobox', 'docdeep_hide_think', 'docdeep_template_background'].forEach(k => {
       if (chg[k]) next[k] = chg[k].newValue;
     });
     applySettings({ ...settings, ...next });

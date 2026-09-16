@@ -1,9 +1,14 @@
 {
   "manifest_version": 3,
   "name": "deepseek ui",
-  "version": "0.3.38",
+  "version": "0.3.48",
   "description": "把 DeepSeek 网页版重排为中文文档工作台：阅读、搜索、导出和本地收藏。纯本地增强，保留原生表单发送链路。",
   "minimum_chrome_version": "109",
+  "icons": {
+    "16": "assets/icons/icon16.png",
+    "48": "assets/icons/icon48.png",
+    "128": "assets/icons/icon128.png"
+  },
   "permissions": ["storage", "downloads"],
   "host_permissions": ["https://chat.deepseek.com/*"],
   "content_scripts": [
@@ -24,10 +29,12 @@
         "content.parts/10-native-outline.js",
         "content.parts/11-outline.js",
         "content.parts/12-navigation.js",
+        "content.parts/12-page-background.js",
         "content.parts/13-entry.js"
       ],
       "css": [
         "content.parts/00-foundation.css",
+        "content.parts/10-page-background.css",
         "content.parts/01-reading.css",
         "content.parts/02-composer-rich.css",
         "content.parts/03-formatting.css",
@@ -42,11 +49,22 @@
       "all_frames": false
     }
   ],
+  "web_accessible_resources": [
+    {
+      "resources": ["assets/backgrounds/main-background.png"],
+      "matches": ["https://chat.deepseek.com/*"]
+    }
+  ],
   "background": {
     "service_worker": "background.js"
   },
   "action": {
     "default_title": "deepseek ui",
-    "default_popup": "popup.html"
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "assets/icons/icon16.png",
+      "48": "assets/icons/icon48.png",
+      "128": "assets/icons/icon128.png"
+    }
   }
 }

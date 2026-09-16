@@ -271,6 +271,7 @@
 
   function classify() {
     if (!isOn()) return;
+    syncPageBackground();
     const urlChanged = location.href !== lastUrl;
     if (urlChanged) {
       removeFormattingToolbar();
@@ -346,14 +347,6 @@
     scheduled = true;
     setTimeout(() => { scheduled = false; classify(); }, 120);
   }
-
-  // 输入字数(事件委托,不碰原节点)
-  document.addEventListener('input', (e) => {
-    if (e.target?.tagName === 'TEXTAREA') {
-      const c = document.querySelector('#docdeep-count');
-      if (c) c.textContent = (e.target.value || '').length + ' 字';
-    }
-  });
 
   function isEditableTarget(target) {
     return !!target?.closest?.('textarea, input, [contenteditable="true"]');

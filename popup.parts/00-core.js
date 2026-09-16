@@ -1,14 +1,48 @@
-// popup v0.3.38: 阅读设置 + 外观模板 + 搜索/导出 + 本地会话收藏
+// popup v0.3.48: 阅读设置 + 外观模板 + 搜索/导出 + 本地会话收藏
 const $ = (id) => document.getElementById(id);
 // POPUP_VER 与 manifest.json / content.parts/00-runtime.js VERSION 三处同步(见 AGENTS.md 版本号规则)
-const POPUP_VER = '0.3.38';
-const DEFAULTS = { docdeep_enabled: true, docdeep_width: 880, docdeep_font: 17, docdeep_theme: 'mi', docdeep_outline: true, docdeep_keys: true, docdeep_hide_native: false, docdeep_format: true, docdeep_addtobox: true, docdeep_hide_think: true };
+const POPUP_VER = '0.3.48';
+const BACKGROUND_KEY = 'docdeep_template_background';
+const BACKGROUND_MAX_BYTES = 5 * 1024 * 1024;
+const BACKGROUND_MAX_DATA_URL_CHARS = Math.ceil(BACKGROUND_MAX_BYTES / 3) * 4 + 128;
+const BACKGROUND_MIME_TYPES = Object.freeze(['image/png', 'image/jpeg']);
+const DEFAULT_TEMPLATE_BACKGROUND = Object.freeze({ enabled: true, dataUrl: '', mimeType: '', name: '', size: 0, width: 0, height: 0 });
+const DEFAULTS = { docdeep_enabled: true, docdeep_width: 880, docdeep_font: 17, docdeep_theme: 'mi', docdeep_outline: true, docdeep_keys: true, docdeep_hide_native: false, docdeep_format: true, docdeep_addtobox: true, docdeep_hide_think: true, [BACKGROUND_KEY]: DEFAULT_TEMPLATE_BACKGROUND };
 const BOOKMARKS_KEY = 'docdeep_bookmarks';
 const SCHEMA_VER = 2;
 const SCHEMA_KEY = 'docdeep_schema_ver';
 const BOOKMARKS_MAX = 100;
 const TAG_MAX = 24;
 let bookmarks = [];
+
+function estimateBase64Bytes(dataUrl) {
+  const comma = String(dataUrl || '').indexOf(',');
+  if (comma < 0) return 0;
+  const body = String(dataUrl).slice(comma + 1);
+  const padding = body.endsWith('==') ? 2 : body.endsWith('=') ? 1 : 0;
+  return Math.max(0, Math.floor(body.length * 3 / 4) - padding);
+}
+
+function normalizeTemplateBackground(value) {
+  const source = value && typeof value === 'object' && !Array.isArray(value) ? value : DEFAULT_TEMPLATE_BACKGROUND;
+  let dataUrl = typeof source.dataUrl === 'string' ? source.dataUrl.trim() : '';
+  const dataMatch = dataUrl.match(/^data:(image\/png|image\/jpeg);base64,[A-Za-z0-9+/=]+$/);
+  const dataValid = !!dataMatch && dataUrl.length <= BACKGROUND_MAX_DATA_URL_CHARS;
+  const estimatedSize = dataValid ? estimateBase64Bytes(dataUrl) : 0;
+  const declaredSize = Number(source.size);
+  const size = Math.max(0, estimatedSize, Number.isFinite(declaredSize) ? declaredSize : 0);
+  if (!dataValid || size > BACKGROUND_MAX_BYTES) dataUrl = '';
+  const mimeType = dataUrl ? dataMatch[1] : '';
+  return {
+    enabled: source.enabled !== false,
+    dataUrl,
+    mimeType,
+    name: dataUrl ? String(source.name || '').trim().slice(0, 120) : '',
+    size: dataUrl ? size : 0,
+    width: dataUrl ? Math.max(0, Number(source.width) || 0) : 0,
+    height: dataUrl ? Math.max(0, Number(source.height) || 0) : 0,
+  };
+}
 
 function isDeepSeekUrl(url) {
   try {
@@ -127,7 +161,7 @@ function exportFileDate(d) {
   return `${t.getFullYear()}${p(t.getMonth() + 1)}${p(t.getDate())}`;
 }
 
-// 纯构造：settings 取 7 键，bookmarks 经 normalize；供单测与导出共用
+// 纯构造：settings 取兼容设置键，bookmarks 经 normalize；供单测与导出共用
 function buildBookmarksExport(settings, list, now) {
   const s = settings || {};
   const safeSettings = {
@@ -139,6 +173,7 @@ function buildBookmarksExport(settings, list, now) {
     docdeep_keys: s.docdeep_keys ?? DEFAULTS.docdeep_keys,
     docdeep_format: s.docdeep_format ?? DEFAULTS.docdeep_format,
     docdeep_addtobox: s.docdeep_addtobox ?? DEFAULTS.docdeep_addtobox,
+    [BACKGROUND_KEY]: normalizeTemplateBackground(s[BACKGROUND_KEY]),
   };
   const date = exportFileDate(now instanceof Date ? now : new Date());
   const ts = now instanceof Date && !Number.isNaN(now.getTime()) ? now.toISOString() : new Date().toISOString();

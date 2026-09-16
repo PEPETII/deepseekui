@@ -197,21 +197,6 @@
     mainRow.append(tools, find, outline);
     bar.append(mainRow);
 
-    const meta = document.createElement('div');
-    meta.className = 'doc-tools-meta ' + INJECTED;
-    const ver = document.createElement('span');
-    ver.id = 'docdeep-ver';
-    ver.className = INJECTED;
-    ver.textContent = 'deepseek ui v' + VERSION;
-    ver.title = '扩展内容脚本版本(对不上 popup 版本即需重载扩展)';
-    const count = document.createElement('span');
-    count.id = 'docdeep-count';
-    count.className = INJECTED;
-    count.textContent = '0 字';
-    count.title = '当前输入框字数';
-    meta.append(ver, count);
-    bar.appendChild(meta);
-
     ensureDock().appendChild(bar);
   }
 

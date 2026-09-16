@@ -44,10 +44,13 @@ function initStatusFlash() {
 try {
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
-      DEFAULTS, BOOKMARKS_KEY, SCHEMA_VER, SCHEMA_KEY, BOOKMARKS_MAX, TAG_MAX,
+      DEFAULTS, BACKGROUND_KEY, BACKGROUND_MAX_BYTES, BACKGROUND_MAX_DATA_URL_CHARS, BACKGROUND_MIME_TYPES,
+      DEFAULT_TEMPLATE_BACKGROUND,
+      BOOKMARKS_KEY, SCHEMA_VER, SCHEMA_KEY, BOOKMARKS_MAX, TAG_MAX,
       isDeepSeekUrl, bookmarkId, normalizeBookmarks, migrateBookmarks,
-      filterBookmarks, parseImportBookmarks, exportFileDate, buildBookmarksExport, getTagOptions,
-      TEMPLATES, activeTemplate,
+      estimateBase64Bytes, normalizeTemplateBackground, backgroundConfigAfterUpload, filterBookmarks, parseImportBookmarks,
+      exportFileDate, buildBookmarksExport, validateBackgroundFile, getTagOptions,
+      TEMPLATES, THEME_SLOTS, activeTemplate,
     };
   }
 } catch {}
@@ -154,4 +157,5 @@ if (typeof document !== 'undefined') {
   try { initTabs(); } catch {}
   try { initStatusFlash(); } catch {}
   try { initTemplates(); } catch {}
+  try { initBackgroundSettings(); } catch {}
 }

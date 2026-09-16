@@ -16,7 +16,6 @@
 @media (max-width: 720px) {
   html[data-docdeep="on"] #docdeep-dock { left: 12px; right: 12px; max-width: none; align-items: stretch; }
   html[data-docdeep="on"] #docdeep-tools .doc-tools-row { justify-content: flex-start; }
-  html[data-docdeep="on"] #docdeep-tools .doc-tools-meta { justify-content: flex-start; }
   html[data-docdeep="on"] #docdeep-formatbar {
     max-width: calc(100vw - 16px);
     flex-wrap: wrap;
@@ -37,8 +36,6 @@
   html[data-docdeep="on"] #docdeep-formatbar,
   html[data-docdeep="on"] #docdeep-addtobox,
   html[data-docdeep="on"] #docdeep-tools,
-  html[data-docdeep="on"] #docdeep-count,
-  html[data-docdeep="on"] #docdeep-ver,
   html[data-docdeep="on"] #docdeep-toast,
   html[data-docdeep="on"] #docdeep-find,
   html[data-docdeep="on"] #docdeep-export-progress,

@@ -32,6 +32,13 @@
     };
     const attachFilter = (b) => {
       if (b.querySelector('.doc-ol-filter')) return b.querySelector('.doc-ol-filter');
+      // 图标 + 输入框组合容器: 与下方纯文本「滚动补全全部」按钮在视觉上区分
+      const wrap = document.createElement('div');
+      wrap.className = 'doc-ol-filter-wrap ' + INJECTED;
+      const ico = document.createElement('span');
+      ico.className = 'doc-ol-filter-ico ' + INJECTED;
+      ico.setAttribute('aria-hidden', 'true');
+      ico.innerHTML = '<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="6.5" cy="6.5" r="4.2"/><line x1="9.8" y1="9.8" x2="13.5" y2="13.5"/></svg>';
       const inp = document.createElement('input');
       inp.type = 'search';
       inp.className = 'doc-ol-filter ' + INJECTED;
@@ -44,9 +51,11 @@
       inp.addEventListener('keydown', (e) => { e.stopPropagation(); });
       inp.addEventListener('keypress', (e) => { e.stopPropagation(); });
       inp.addEventListener('keyup', (e) => { e.stopPropagation(); });
+      wrap.appendChild(ico);
+      wrap.appendChild(inp);
       const lst = b.querySelector('.doc-ol-list');
-      if (lst) b.insertBefore(inp, lst);
-      else b.appendChild(inp);
+      if (lst) b.insertBefore(wrap, lst);
+      else b.appendChild(wrap);
       return inp;
     };
     let box = document.querySelector('#docdeep-outline');

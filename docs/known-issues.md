@@ -249,3 +249,29 @@
   对组容器（内联 --collapsible-area-title-height 锚点）的 firstElementChild（原生标题行）转发一次 click，
   复用站点折叠状态机；WeakSet + key 计数 + isTrusted 接管监听三重防重入。详见
   docs/工单计划/思考自动收拢-工单.md 与 docs/完成报告/思考自动收拢-完成报告.md。
+
+## ENTER-BIND-001 富文本表面 keydown 监听缺失，Enter 转发成死代码（v0.3.39 修复）
+
+- 现象：开启「选区格式工具栏」后，输入框打字按 Enter 只换行、不发送（与 v0.3.37 修复前同症状）。
+- 根因：`bindRichEditor`（`content.parts/04-rich-editor.js`）内定义的 `keydown` handler（含 Enter 转发优先 + 回退分支）
+  从未被注册——`events` 数组只有 focus/keyup/mouseup/click/beforeinput/input/compositionstart/compositionend，
+  漏了 `['keydown', keydown]`。`forwardEnterToNativeComposer` 本体完好、单测 8 例全绿，但线上永远走不到；
+  Enter 遂走 contenteditable 默认行为（插入换行）。属「定义了 handler 却没绑定」的静默失效：JS 不报错、
+  函数级单测全绿、页面无异常，三层检查全过但功能不工作。
+- 修复（v0.3.39）：`events` 数组补 `['keydown', keydown]` 一行；挂载/卸载复用既有 bookkeeping。
+  新增 `tests/enter-binding.test.js`（4 例接线回归：handler 定义存在 / 已注册进 events / 统一挂载且纳入卸载 /
+  Enter 分支转发优先 + 守卫未放宽），以后凡 handler 必断言注册。详见
+  `docs/工单计划/Enter绑定缺失-工单.md` 与 `docs/完成报告/Enter绑定缺失-完成报告.md`。
+
+## SKIN-DARK-REMOVE-001 「模板」分区「深色」卡删除（v0.3.40，非缺陷修复，记录性条目）
+
+- 背景：应用户要求删除【模板】内现有外观模板"深色"。
+- 删除范围：
+  1. popup：`data-skin="mo"` 卡片整节、`data-preview="mo"` 预览缩略图样式、`TEMPLATES` 中的 mo 项；
+     `applyTheme` 白名单改走新增 `THEME_SLOTS = ['mi', 'bai', 'mo']`；pane-note 文案同步。
+  2. 单测：`tests/template.test.js` 改为单档断言 + `THEME_SLOTS` 全集断言 + `activeTemplate('mo') → null`。
+- 保留说明：「深色」只是 `mo` 档位的具名入口，不是主题机制本身。`content.parts/*` 的
+  `data-doctheme="mo"` 令牌分支、popup 面板 `:root[data-theme="dark"]` 分支、「阅读」下拉 `mi/bai/mo`
+  三档、存量 `mo` 配置全部保留；存量 `mo` 用户打开面板时模板区空白选中（不谎报当前外观）。
+- 回归：`node --check` 通过；模板单测 7/7；四处版本 `0.3.40` 一致；行数门禁通过。
+  详见 `docs/工单计划/删除深色模板-工单.md` 与 `docs/完成报告/删除深色模板-完成报告.md`。

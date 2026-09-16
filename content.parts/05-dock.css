@@ -61,29 +61,3 @@ html[data-docdeep="on"] #docdeep-tools button:focus-visible {
   outline: 2px solid var(--dd-line-strong);
   outline-offset: 2px;
 }
-html[data-docdeep="on"] #docdeep-tools .doc-tools-meta {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  padding-top: 2px;
-  font-size: 11px;
-  color: var(--dd-muted);
-}
-html[data-docdeep="on"] #docdeep-ver {
-  font-size: 10px;
-  color: var(--dd-muted);
-  white-space: nowrap;
-  letter-spacing: .02em;
-}
-html[data-docdeep="on"] #docdeep-count {
-  flex: none;
-  font-size: 11px;
-  color: var(--dd-text-2);
-  background: var(--dd-surface-sunken);
-  border: 1px solid var(--dd-line);
-  border-radius: 999px;
-  padding: 1px 9px;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-}

@@ -136,6 +136,7 @@
 
   /* ---------- 行 / 表单 ---------- */
   .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 30px; }
+  .row[hidden] { display: none; }
   .row-txt { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
   .row-txt label { font-size: 12.5px; color: var(--text); line-height: 1.4; }
   .row-txt b { font-weight: 600; }
@@ -260,8 +261,6 @@
   .skin-preview i.sp-accent { width: 34%; opacity: 1; }
   .skin-preview[data-preview="mi"] { background: #F1EFE8; color: #2D2A26; }
   .skin-preview[data-preview="mi"] i.sp-accent { background: #C06B52; }
-  .skin-preview[data-preview="mo"] { background: #23262C; color: #E6E4DF; border-color: rgba(255, 255, 255, .16); }
-  .skin-preview[data-preview="mo"] i.sp-accent { background: #E08A6F; }
   .skin-meta { min-width: 0; flex: 1 1 auto; display: flex; flex-direction: column; gap: 2px; }
   .skin-name { font-size: 12.5px; font-weight: 600; color: var(--text); }
   .skin.is-active .skin-name { color: var(--brand); }
@@ -273,6 +272,20 @@
     font-size: 10px; line-height: 1;
   }
   .skin.is-active .skin-check { background: var(--brand); border-color: var(--brand); color: var(--btn-primary-text); }
+
+  /* ---------- 模板背景图 ---------- */
+  .background-preview {
+    position: relative; aspect-ratio: 16 / 9; overflow: hidden;
+    border: 1px solid var(--line); border-radius: var(--radius);
+    background: var(--surface-2); display: flex; align-items: center; justify-content: center;
+  }
+  .background-preview img { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .background-preview img[hidden] { display: none; }
+  .background-preview-empty { padding: 10px; color: var(--muted); font-size: 11px; text-align: center; }
+  .background-info, .background-spec, .background-status { margin: 0; color: var(--muted); font-size: 10.5px; line-height: 1.5; }
+  .background-info { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .background-status { color: var(--text-2); }
+  .background-actions { gap: 6px; }
 
   /* ---------- 底部状态条 ---------- */
   .foot { flex: none; border-top: 1px solid var(--line); background: var(--sidebar); padding: 8px 12px 10px; }
@@ -301,7 +314,7 @@
       <span class="app-logo" aria-hidden="true" data-page-node-id="NbS0kiitDiSV0GDSGFWAep">文</span>
       <div class="app-title" data-page-node-id="5BZA9cqUFKrlShxbORDFeH">
         <h1 class="app-name" data-page-node-id="JWxViIuj8brADVphFxOJ8u">deepseek ui</h1>
-        <span class="app-ver" data-page-node-id="tX80dQF4wZmQSUBYXlUeCQ">v0.3.38</span>
+        <span class="app-ver" data-page-node-id="tX80dQF4wZmQSUBYXlUeCQ">v0.3.48</span>
       </div>
     </div>
   </header>
@@ -370,7 +383,7 @@
             </div>
             <button type="button" class="sw" id="hidethink" role="switch" aria-checked="true" aria-labelledby="l-hidethink"></button>
           </div>
-          <div class="row" data-page-node-id="ciIKd9ZBTXLnHcb9U4bupR">
+          <div class="row" hidden data-page-node-id="ciIKd9ZBTXLnHcb9U4bupR">
             <div class="row-txt" data-page-node-id="Tm1rCyTH7EPFmBfFL8lf5t">
               <label id="l-keys" data-page-node-id="la9eosreUdRcGSj9M4S1s9"><b data-page-node-id="MRMKgf9tIEyLLQVmIILKde">键盘导航</b></label>
               <small data-page-node-id="d1N2WfVom3NDtrtcixNp4F">J / K 跳提问，? 查看全部快捷键</small>
@@ -416,18 +429,34 @@
               </span>
               <span class="skin-check" aria-hidden="true" data-page-node-id="Nq8mD4zLpTv6sXf3BdYw2K">✓</span>
             </button>
-            <button type="button" class="skin" data-skin="mo" aria-pressed="false" data-page-node-id="Pr5wF9nQmZt3vLd8BxYc6T">
-              <span class="skin-preview" data-preview="mo" aria-hidden="true" data-page-node-id="Qt2zH7mVpKb5nSf9DxWc4L"><i class="sp-title"></i><i class="sp-line"></i><i class="sp-line sp-short"></i><i class="sp-accent"></i></span>
-              <span class="skin-meta" data-page-node-id="Rv6nC3xLpQt9mBd4YfHz8W">
-                <span class="skin-name" data-page-node-id="Sw9bJ5mPkNv2qXd7LfYz3R">深色</span>
-                <span class="skin-desc" data-page-node-id="Tx4cK8nQmVp6sZd2BfWw7L">墨色纸面 · 低亮度阅读不刺眼</span>
-              </span>
-              <span class="skin-check" aria-hidden="true" data-page-node-id="Uy7dL2mRkNb5qXf9WzPv4H">✓</span>
-            </button>
           </div>
         </div>
       </div>
-      <p class="pane-note" data-page-node-id="Vz3eM9nQpKb6sXd4RfYw8L">模板决定整页配色，选中后当前会话页面与面板立即切换；字号、纸张宽度等版式不受影响。更多档位（纯白）仍可在「阅读」里选择。</p>
+      <div class="card" id="background-card">
+        <div class="card-hd"><span class="card-title">模板背景图</span><span class="card-note" id="background-state">已开启</span></div>
+        <div class="card-bd">
+          <div class="row">
+            <div class="row-txt">
+              <label id="l-background"><b>开启背景图</b></label>
+              <small>当前模板实时应用到 DeepSeek 页面</small>
+            </div>
+            <button type="button" class="sw" id="background-toggle" role="switch" aria-checked="true" aria-labelledby="l-background"></button>
+          </div>
+          <div class="background-preview" aria-live="polite">
+            <img id="background-preview" alt="模板背景图预览" hidden />
+            <span id="background-preview-empty">正在准备背景图预览</span>
+          </div>
+          <p class="background-info" id="background-info">内置默认图 · 1920×1080 · 16:9</p>
+          <div class="btns background-actions">
+            <button type="button" class="btn" id="background-upload">上传背景图</button>
+            <button type="button" class="btn" id="background-remove" disabled>删除背景图</button>
+          </div>
+          <input type="file" id="background-file" accept="image/png,image/jpeg,.png,.jpg,.jpeg" aria-label="选择背景图文件" hidden />
+          <p class="background-spec">推荐 1920×1080（16:9）；支持 JPG/JPEG、PNG；图片不超过 5 MB。</p>
+          <p class="background-status" id="background-status" role="status" aria-live="polite">内置默认背景图</p>
+        </div>
+      </div>
+      <p class="pane-note" data-page-node-id="Vz3eM9nQpKb6sXd4RfYw8L">模板决定整页配色，选中后当前会话页面与面板立即切换；字号、纸张宽度等版式不受影响。更多档位（纯白 / 墨色）仍可在「阅读」里选择。</p>
     </section>
 
     <!-- 当前会话操作 -->
@@ -492,11 +521,12 @@
 
   <footer class="foot" data-page-node-id="bhXWY6ELwkiAcKxbD3gNAn">
     <div class="status" id="tip" role="status" aria-live="polite" data-page-node-id="9bsXkTHLfvkS0bmWej0cbr">已启用。关闭后页面即恢复原站，无需刷新。</div>
-    <p class="privacy" data-page-node-id="013065NPK9Bzq37MPdoLCO">设置和收藏保存在本地，只保存收藏标题与链接，不读取账号与 Token。</p>
+    <p class="privacy" data-page-node-id="013065NPK9Bzq37MPdoLCO">设置、收藏和模板背景图保存在本地；收藏只保存标题与链接，不读取账号与 Token。</p>
   </footer>
 <script src="popup.parts/00-core.js"></script>
 <script src="popup.parts/01-bookmarks.js"></script>
 <script src="popup.parts/02-themes.js"></script>
+<script src="popup.parts/03-background.js"></script>
 <script src="popup.parts/03-entry.js"></script>
 </body>
 </html>
